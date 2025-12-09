@@ -1,0 +1,471 @@
+import streamlit as st
+import google.generativeai as genai
+import sqlite3
+import pandas as pd
+import datetime
+import time
+import json
+import re
+
+# --- 1. 設定與 API Key (後端寫死) ---
+GEMINI_API_KEY = "AIzaSyBXOxRg0KY8RsWoUrj25mZpLDgtk21luW4"
+
+# 設定頁面資訊 (必須是第一個 st 指令)
+st.set_page_config(page_title="威杰能源內部點餐系統", layout="wide")
+
+# 設定 Gemini
+try:
+    genai.configure(api_key=GEMINI_API_KEY)
+except Exception as e:
+    st.error(f"API Key 設定失敗: {e}")
+
+# --- 2. CSS 樣式注入 (黑白極簡風格 + 輸入框修正) ---
+def inject_custom_css():
+    st.markdown("""
+    <style>
+        /* 全域背景 */
+        .stApp {
+            background-color: #FFFFFF;
+            color: #000000;
+        }
+        
+        /* 側邊欄樣式 */
+        [data-testid="stSidebar"] {
+            background-color: #000000;
+        }
+        [data-testid="stSidebar"] * {
+            color: #FFFFFF !important;
+        }
+        
+        /* 輸入框強制黑底白字 */
+        .stTextInput input, .stNumberInput input, .stSelectbox div[data-baseweb="select"] > div {
+            background-color: #000000 !important;
+            color: #FFFFFF !important;
+            caret-color: #FFFFFF; /* 游標顏色 */
+            border: 1px solid #666;
+        }
+        
+        /* 下拉選單的選項清單 (Dropdown options) */
+        ul[data-testid="stSelectboxVirtualDropdown"] {
+            background-color: #000000 !important;
+        }
+        li[role="option"] {
+            color: #FFFFFF !important;
+        }
+        
+        /* 按鈕樣式 (黑底白字) */
+        .stButton > button {
+            background-color: #000000 !important;
+            color: #FFFFFF !important;
+            border: 1px solid #000000;
+            font-weight: bold;
+        }
+        .stButton > button:hover {
+            border-color: #666666;
+            color: #cccccc !important;
+        }
+
+        /* 標題顏色 */
+        h1, h2, h3, h4, h5, h6 {
+            color: #000000 !important;
+        }
+        
+        /* Metric 指標卡優化 */
+        [data-testid="stMetricValue"] {
+            color: #000000 !important;
+        }
+        [data-testid="stMetricLabel"] {
+            color: #333333 !important;
+        }
+    </style>
+    """, unsafe_allow_html=True)
+
+inject_custom_css()
+
+# --- 3. 資料庫與輔助函式 ---
+DB_NAME = "ordering_system.db"
+
+def get_db_connection():
+    conn = sqlite3.connect(DB_NAME)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+def init_db():
+    """初始化資料庫與資料表"""
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        
+        # Users Table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS Users (
+                user_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT UNIQUE NOT NULL,
+                current_balance INTEGER DEFAULT 0
+            )
+        ''')
+        
+        # Menu Table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS Menu (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                date TEXT NOT NULL,
+                dish_name TEXT NOT NULL,
+                price INTEGER NOT NULL
+            )
+        ''')
+        
+        # Transactions Table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS Transactions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER,
+                type TEXT NOT NULL, -- 'ORDER', 'TOPUP', 'INIT'
+                amount INTEGER NOT NULL,
+                dish_name TEXT,
+                note TEXT,
+                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES Users (user_id)
+            )
+        ''')
+        conn.commit()
+
+# 初始化 DB
+init_db()
+
+# --- 4. 側邊欄導航 ---
+st.sidebar.title("威杰能源點餐系統")
+page = st.sidebar.radio(
+    "功能選單",
+    ["🍽️ 員工點餐", "🤖 菜單管理 (AI)", "💰 儲值作業", "📊 每日點餐匯總", "👥 人員管理"]
+)
+
+# --- 5. 頁面邏輯 ---
+
+# === 頁面 1: 員工點餐 ===
+if page == "🍽️ 員工點餐":
+    st.title("🍽️ 歡迎點餐")
+    
+    # 1. 選擇員工
+    with get_db_connection() as conn:
+        users = pd.read_sql("SELECT user_id, name, current_balance FROM Users", conn)
+    
+    if users.empty:
+        st.warning("目前沒有員工資料，請聯繫管理員新增。")
+    else:
+        user_names = users['name'].tolist()
+        selected_user_name = st.selectbox("請選擇您的姓名", user_names)
+        
+        # 取得選定員工的詳細資料
+        current_user = users[users['name'] == selected_user_name].iloc[0]
+        user_id = int(current_user['user_id'])
+        balance = int(current_user['current_balance'])
+        
+        # 顯示餘額 (大字體)
+        st.metric("目前餘額", f"${balance}")
+        
+        st.divider()
+
+        # 2. 歷史消費紀錄 (本月)
+        st.subheader("📅 本月消費紀錄")
+        with get_db_connection() as conn:
+            # 取得本月第一天
+            first_day = datetime.date.today().replace(day=1).strftime('%Y-%m-%d')
+            query = """
+                SELECT strftime('%Y-%m-%d %H:%M', timestamp) as 時間,
+                       dish_name as 項目,
+                       amount as 金額,
+                       note as 備註
+                FROM Transactions 
+                WHERE user_id = ? AND timestamp >= ? 
+                ORDER BY timestamp DESC
+            """
+            history_df = pd.read_sql(query, conn, params=(user_id, first_day))
+        
+        st.dataframe(history_df, use_container_width=True, hide_index=True)
+
+        st.divider()
+        
+        # 3. 今日菜單與點餐卡片
+        st.subheader("🍱 今日菜單")
+        today = datetime.date.today().strftime("%Y-%m-%d")
+        
+        with get_db_connection() as conn:
+            menu_df = pd.read_sql("SELECT * FROM Menu WHERE date = ?", conn, params=(today,))
+            
+        if menu_df.empty:
+            st.info("今日尚未發布菜單。")
+        else:
+            # 定義確認視窗 (使用 st.dialog - Streamlit 1.34+)
+            @st.dialog("確認點餐資訊")
+            def confirm_order(dish_name, price, note, user_id, user_name):
+                st.write(f"**員工:** {user_name}")
+                st.write(f"**餐點:** {dish_name}")
+                st.write(f"**價格:** ${price}")
+                st.write(f"**備註:** {note if note else '無'}")
+                st.warning("點擊確認後將直接扣款。")
+                
+                col1, col2 = st.columns(2)
+                if col1.button("✅ 確認點餐"):
+                    try:
+                        with get_db_connection() as conn:
+                            cursor = conn.cursor()
+                            # 扣款交易
+                            cursor.execute("""
+                                INSERT INTO Transactions (user_id, type, amount, dish_name, note)
+                                VALUES (?, 'ORDER', ?, ?, ?)
+                            """, (user_id, -price, dish_name, note))
+                            
+                            # 更新餘額
+                            cursor.execute("""
+                                UPDATE Users SET current_balance = current_balance - ?
+                                WHERE user_id = ?
+                            """, (price, user_id))
+                            conn.commit()
+                        
+                        st.success("點餐成功！")
+                        time.sleep(1)
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"點餐失敗: {e}")
+                
+                if col2.button("❌ 取消"):
+                    st.rerun()
+
+            # 顯示卡片 Grid
+            cols = st.columns(4)
+            for idx, row in menu_df.iterrows():
+                with cols[idx % 4]:
+                    with st.container(border=True):
+                        st.write(f"**{row['dish_name']}**")
+                        st.markdown(f"<h3>${row['price']}</h3>", unsafe_allow_html=True)
+                        
+                        # 備註輸入框 (唯一的 key 避免衝突)
+                        note = st.text_input("備註 (如:飯少)", key=f"note_{row['id']}")
+                        
+                        if st.button("選購", key=f"btn_{row['id']}"):
+                            confirm_order(row['dish_name'], row['price'], note, user_id, selected_user_name)
+
+# === 頁面 2: 菜單管理 (AI) ===
+elif page == "🤖 菜單管理 (AI)":
+    st.title("🤖 智能菜單管理")
+    
+    # 檔案上傳
+    uploaded_file = st.file_uploader("上傳菜單圖片 (JPG/PNG)", type=["jpg", "jpeg", "png"])
+    
+    # 使用 session_state 管理狀態
+    if 'menu_df' not in st.session_state:
+        st.session_state['menu_df'] = None
+
+    if uploaded_file:
+        # 如果還沒辨識過，就呼叫 AI
+        if st.session_state['menu_df'] is None:
+            with st.spinner("AI 正在辨識菜單中，請稍候..."):
+                try:
+                    image_parts = [{"mime_type": uploaded_file.type, "data": uploaded_file.getvalue()}]
+                    model = genai.GenerativeModel('gemini-1.5-flash')
+                    prompt = """
+                    Analyze this menu image. Extract dish names and prices.
+                    Return ONLY a raw JSON list like [{"dish_name": "name", "price": 100}].
+                    Do not use Markdown formatting or code blocks. Just the JSON string.
+                    """
+                    response = model.generate_content([prompt, image_parts[0]])
+                    text = response.text.strip()
+                    # 清理可能的回傳格式
+                    text = text.replace("```json", "").replace("```", "")
+                    
+                    data = json.loads(text)
+                    st.session_state['menu_df'] = pd.DataFrame(data)
+                except Exception as e:
+                    st.error(f"辨識失敗: {e}")
+        
+        # 顯示編輯器
+        if st.session_state['menu_df'] is not None:
+            st.subheader("編輯與確認")
+            edited_df = st.data_editor(st.session_state['menu_df'], num_rows="dynamic")
+            
+            if st.button("確認發布今日菜單"):
+                try:
+                    today = datetime.date.today().strftime("%Y-%m-%d")
+                    with get_db_connection() as conn:
+                        cursor = conn.cursor()
+                        # 清除今日舊菜單 (若有的話)
+                        cursor.execute("DELETE FROM Menu WHERE date = ?", (today,))
+                        
+                        # 寫入新菜單
+                        for _, row in edited_df.iterrows():
+                            cursor.execute(
+                                "INSERT INTO Menu (date, dish_name, price) VALUES (?, ?, ?)",
+                                (today, row['dish_name'], row['price'])
+                            )
+                        conn.commit()
+                    
+                    st.success("菜單已成功發布！")
+                    # 清除狀態
+                    st.session_state['menu_df'] = None
+                    time.sleep(1.5)
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"寫入資料庫失敗: {e}")
+
+# === 頁面 3: 儲值作業 ===
+elif page == "💰 儲值作業":
+    st.title("💰 員工儲值作業")
+    
+    with get_db_connection() as conn:
+        users = pd.read_sql("SELECT user_id, name, current_balance FROM Users", conn)
+    
+    if users.empty:
+        st.warning("無員工資料")
+    else:
+        # 使用 Form 解決按鈕失效問題
+        with st.form("topup_form"):
+            col1, col2 = st.columns(2)
+            with col1:
+                user_name_options = users['name'].tolist()
+                selected_name = st.selectbox("選擇員工", user_name_options)
+            with col2:
+                amount = st.number_input("儲值金額", min_value=1, step=100)
+            
+            submitted = st.form_submit_button("確認儲值")
+            
+            if submitted:
+                target_user = users[users['name'] == selected_name].iloc[0]
+                user_id = int(target_user['user_id'])
+                
+                try:
+                    with get_db_connection() as conn:
+                        cursor = conn.cursor()
+                        # 新增交易紀錄
+                        cursor.execute("""
+                            INSERT INTO Transactions (user_id, type, amount, note)
+                            VALUES (?, 'TOPUP', ?, '管理員儲值')
+                        """, (user_id, amount))
+                        
+                        # 更新餘額
+                        cursor.execute("""
+                            UPDATE Users SET current_balance = current_balance + ?
+                            WHERE user_id = ?
+                        """, (amount, user_id))
+                        conn.commit()
+                        
+                    st.success(f"已成功為 {selected_name} 儲值 ${amount}")
+                    time.sleep(1)
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"儲值失敗: {e}")
+
+# === 頁面 4: 每日點餐匯總 ===
+elif page == "📊 每日點餐匯總":
+    st.title("📊 每日點餐匯總")
+    today_str = datetime.date.today().strftime("%Y-%m-%d")
+    st.write(f"**日期:** {today_str}")
+    
+    with get_db_connection() as conn:
+        # 計算指標
+        # 1. 初始儲值金總額 (目前所有人的餘額總和)
+        total_balance = conn.execute("SELECT SUM(current_balance) FROM Users").fetchone()[0] or 0
+        
+        # 2. 今日儲值總額
+        today_topup = conn.execute(
+            "SELECT SUM(amount) FROM Transactions WHERE type='TOPUP' AND date(timestamp) = ?", 
+            (today_str,)
+        ).fetchone()[0] or 0
+        
+        # 3. 今日訂單總額 (Amount 是負的，所以加負號轉正)
+        today_order_sum = conn.execute(
+            "SELECT SUM(amount) FROM Transactions WHERE type='ORDER' AND date(timestamp) = ?", 
+            (today_str,)
+        ).fetchone()[0] or 0
+        today_order_total = abs(today_order_sum)
+        
+        # 顯示指標卡
+        m1, m2, m3 = st.columns(3)
+        m1.metric("初始儲值金總額 (目前總餘額)", f"${total_balance}")
+        m2.metric("今日儲值金總額", f"${today_topup}")
+        m3.metric("今日訂單總額", f"${today_order_total}")
+        
+        st.divider()
+        st.subheader("📋 今日訂單明細")
+        
+        # 查詢詳細報表
+        query = """
+            SELECT 
+                time(t.timestamp) as 時間,
+                u.name as 員工姓名,
+                t.dish_name as 餐點名稱,
+                t.note as 備註,
+                ABS(t.amount) as 價格
+            FROM Transactions t
+            JOIN Users u ON t.user_id = u.user_id
+            WHERE t.type = 'ORDER' AND date(t.timestamp) = ?
+            ORDER BY t.timestamp DESC
+        """
+        report_df = pd.read_sql(query, conn, params=(today_str,))
+        
+        if report_df.empty:
+            st.info("今日尚無訂單")
+        else:
+            st.dataframe(report_df, use_container_width=True)
+
+# === 頁面 5: 人員管理 ===
+elif page == "👥 人員管理":
+    st.title("👥 人員管理")
+    
+    # 新增員工 Form
+    with st.expander("➕ 新增員工", expanded=True):
+        with st.form("add_user_form"):
+            new_name = st.text_input("員工姓名")
+            initial_balance = st.number_input("初始金額", min_value=0, value=0)
+            submit_add = st.form_submit_button("新增")
+            
+            if submit_add:
+                if new_name:
+                    try:
+                        with get_db_connection() as conn:
+                            cursor = conn.cursor()
+                            cursor.execute("INSERT INTO Users (name, current_balance) VALUES (?, ?)", (new_name, initial_balance))
+                            # 取得剛插入的 ID
+                            new_id = cursor.lastrowid
+                            # 寫入初始交易
+                            cursor.execute("""
+                                INSERT INTO Transactions (user_id, type, amount, note)
+                                VALUES (?, 'INIT', ?, '初始開戶')
+                            """, (new_id, initial_balance))
+                            conn.commit()
+                        st.success(f"員工 {new_name} 新增成功！")
+                        time.sleep(1)
+                        st.rerun()
+                    except sqlite3.IntegrityError:
+                        st.error("該員工姓名已存在！")
+                    except Exception as e:
+                        st.error(f"錯誤: {e}")
+                else:
+                    st.warning("請輸入姓名")
+
+    st.divider()
+    
+    # 員工列表與刪除
+    st.subheader("現有員工清單")
+    with get_db_connection() as conn:
+        users = pd.read_sql("SELECT * FROM Users", conn)
+    
+    st.dataframe(users, use_container_width=True)
+    
+    st.divider()
+    
+    # 刪除區塊
+    st.subheader("🚫 刪除/停用員工")
+    user_to_delete = st.selectbox("選擇要刪除的員工", users['name'].tolist() if not users.empty else [])
+    
+    if st.button("確認刪除此員工"):
+        if user_to_delete:
+            try:
+                with get_db_connection() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute("DELETE FROM Users WHERE name = ?", (user_to_delete,))
+                    conn.commit()
+                st.warning(f"員工 {user_to_delete} 已刪除")
+                time.sleep(1)
+                st.rerun()
+            except Exception as e:
+                st.error(f"刪除失敗: {e}")
