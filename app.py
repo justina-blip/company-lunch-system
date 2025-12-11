@@ -7,95 +7,75 @@ import time
 import json
 
 # --- 1. 設定與 API Key ---
-st.set_page_config(page_title="SmartCanteen B&W", layout="wide", initial_sidebar_state="expanded")
+# initial_sidebar_state="expanded" -> 讓側邊欄預設展開
+st.set_page_config(page_title="SmartCanteen", layout="wide", initial_sidebar_state="expanded")
 
 # 讀取 API Key
 if "GEMINI_API_KEY" in st.secrets:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 else:
+    # 僅顯示警告，不中斷程式
     pass 
 
-# --- 2. CSS 最終修復版 (黑白濾鏡 + 救回選單按鈕 + 強制配色) ---
+# --- 2. CSS 黑白極簡風格 (無濾鏡、高清晰版) ---
 def inject_custom_css():
     st.markdown("""
     <style>
-        /* 1. 全站強制灰階 (Grayscale) - 讓 Emoji 變黑白 */
-        html {
-            filter: grayscale(100%);
-        }
-
-        /* 2. 字體設定：微軟正黑體 */
+        /* 1. 全站字體：微軟正黑體 */
         html, body, .stApp, button, input, select, textarea {
             font-family: "Microsoft JhengHei", "微軟正黑體", sans-serif !important;
         }
 
-        /* 3. 強制主畫面：白底黑字 */
+        /* 2. 背景設定：純白 */
         .stApp {
             background-color: #FFFFFF !important;
             color: #000000 !important;
         }
-        /* 強制所有段落、標題為黑色 (防止深色模式反白) */
-        .main p, .main h1, .main h2, .main h3, .main label, .main div, .main span {
-            color: #000000 !important;
-        }
 
-        /* 4. 側邊欄：純黑底白字 */
+        /* 3. 側邊欄：純黑底 + 白字 */
         [data-testid="stSidebar"] {
             background-color: #000000 !important;
             border-right: 1px solid #333;
         }
-        /* 側邊欄內的所有文字強制變白 */
-        [data-testid="stSidebar"] * {
+        [data-testid="stSidebar"] p, [data-testid="stSidebar"] span, [data-testid="stSidebar"] div, [data-testid="stSidebar"] label {
             color: #FFFFFF !important;
         }
         
-        /* 5. 救回左上角選單按鈕 (關鍵修復) */
+        /* 4. 救回選單按鈕 (關鍵修復) */
+        /* 讓 Header 背景透明，但按鈕設為黑色 */
         header[data-testid="stHeader"] {
-            background-color: transparent !important; /* 背景透明 */
+            background-color: transparent !important;
         }
-        /* 指定漢堡按鈕 (☰) 為黑色，確保看得到 */
+        /* 指定漢堡按鈕 (☰) 顏色為黑 */
         button[kind="header"] {
-            color: #000000 !important; 
-            border: 1px solid #000000 !important; /* 加個框更明顯 */
-            background-color: #FFFFFF !important;
+            color: #000000 !important;
         }
-        
-        /* 6. 輸入框：白底黑字 + 黑框 */
+
+        /* 5. 輸入框：白底黑字 + 黑框 */
         .stTextInput input, .stNumberInput input, .stSelectbox div[data-baseweb="select"] > div {
             background-color: #FFFFFF !important;
             color: #000000 !important;
             -webkit-text-fill-color: #000000 !important;
-            caret-color: #000000 !important;
-            border: 2px solid #000000 !important;
+            caret-color: #000000 !important; /* 游標顏色 */
+            border: 2px solid #000000 !important; /* 純黑框 */
             border-radius: 0px !important; /* 直角 */
         }
-        /* 下拉選單選項修正 */
+        /* 下拉選單文字 */
         div[data-baseweb="popover"] li {
             color: #000000 !important;
             background-color: #FFFFFF !important;
         }
-        div[data-testid="stSelectboxVirtualDropdown"] {
-            color: #000000 !important;
-        }
-        ul[data-testid="stSelectboxVirtualDropdown"] { background-color: #FFFFFF !important; }
-        li[role="option"] { color: #000000 !important; }
-
-        /* 7. 卡片式設計 (雜誌風格) */
+        
+        /* 6. 卡片式設計 (黑框白底) */
         div[data-testid="stVerticalBlockBorderWrapper"] {
             background-color: #FFFFFF;
             border: 2px solid #000000;
             border-radius: 0px;
             padding: 20px;
-            box-shadow: 6px 6px 0px #000000; /* 強烈的黑影 */
+            box-shadow: 5px 5px 0px #000000; /* 黑影效果 */
         }
-        /* 修正卡片內文字 */
-        div[data-testid="stVerticalBlockBorderWrapper"] p, 
-        div[data-testid="stVerticalBlockBorderWrapper"] h4,
-        div[data-testid="stVerticalBlockBorderWrapper"] div {
-            color: #000000 !important;
-        }
-
-        /* 8. 價格標籤 (黑底白字) */
+        
+        /* 7. 價格標籤 (黑底白字) */
         .price-tag {
             background-color: #000000; 
             color: #FFFFFF !important;
@@ -105,7 +85,7 @@ def inject_custom_css():
             display: inline-block; margin-bottom: 12px;
         }
 
-        /* 9. 按鈕 (純黑實心) */
+        /* 8. 按鈕 (純黑實心) */
         .stButton > button {
             background-color: #000000 !important;
             color: #FFFFFF !important;
@@ -114,19 +94,24 @@ def inject_custom_css():
             font-weight: 800 !important;
         }
         .stButton > button:hover {
-            background-color: #FFFFFF !important; /* Hover 變反白 */
-            color: #000000 !important;
+            background-color: #333333 !important; /* Hover 變深灰 */
+            color: #FFFFFF !important;
         }
 
-        /* 10. 指標數字 (Metric) */
-        div[data-testid="stMetricValue"] {
-            color: #000000 !important;
+        /* 9. 標題強制黑色 */
+        h1, h2, h3 { 
+            color: #000000 !important; 
+            font-weight: 900 !important; 
         }
-        div[data-testid="stMetricLabel"] {
-            color: #000000 !important;
+        /* 側邊欄標題例外 (白色) */
+        [data-testid="stSidebar"] h1 { color: #FFFFFF !important; }
+
+        /* 10. 確保 Alert 警示框文字可見 (移除強制覆蓋) */
+        div[data-baseweb="notification"] p {
+            color: inherit !important; /* 跟隨系統預設，通常是深色，確保可見 */
         }
         
-        /* 側邊欄 Logo */
+        /* Logo */
         .sidebar-logo {
             font-size: 24px; font-weight: 800; margin-bottom: 20px; 
             color: #FFFFFF !important;
@@ -177,7 +162,7 @@ init_db()
 
 # --- 4. 側邊欄導航 ---
 st.sidebar.markdown('<div class="sidebar-logo">NX ENERGY</div>', unsafe_allow_html=True)
-st.sidebar.caption("MONOCHROME v6.0")
+st.sidebar.caption("v7.0 Stable")
 st.sidebar.markdown("---")
 page = st.sidebar.radio("MENU", ["👤 員工點餐", "🤖 菜單管理 (AI)", "💰 儲值作業", "📊 每日匯總", "⚙️ 人員管理"], label_visibility="collapsed")
 
@@ -281,8 +266,9 @@ elif page == "🤖 菜單管理 (AI)":
                     with st.spinner("AI 分析中..."):
                         try:
                             img_parts = [{"mime_type": uploaded_file.type, "data": uploaded_file.getvalue()}]
-                            # 回歸使用標準模型名稱
-                            model = genai.GenerativeModel('gemini-1.5-flash')
+                            
+                            # [修正] 使用指定版本號 001 解決 404 問題
+                            model = genai.GenerativeModel('gemini-1.5-flash-001')
                             
                             response = model.generate_content(["Extract menu items to JSON list [{'dish_name':'', 'price':0}]. No markdown.", img_parts[0]])
                             
@@ -291,7 +277,7 @@ elif page == "🤖 菜單管理 (AI)":
                                 data = json.loads(text)
                                 st.session_state['menu_df'] = pd.DataFrame(data)
                             except json.JSONDecodeError:
-                                st.error("AI 回傳格式錯誤，請重試或檢查圖片。")
+                                st.error("AI 回傳格式錯誤，請重試或檢查圖片清晰度。")
                                 
                         except Exception as e:
                             st.error(f"AI 連線失敗: {e}")
