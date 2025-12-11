@@ -15,64 +15,74 @@ if "GEMINI_API_KEY" in st.secrets:
 else:
     pass 
 
-# --- 2. CSS 最終精準修復版 (針對按鈕與上傳視窗做顯色手術) ---
+# --- 2. CSS 終極樣式表 (修復按鈕黑吃黑 + 上傳視窗 + 文字消失) ---
 def inject_custom_css():
     st.markdown("""
     <style>
         /* ============================
-           1. 全域基礎設定
+           1. 全域基礎與字體
            ============================ */
         html, body, .stApp, button, input, select, textarea {
             font-family: "Microsoft JhengHei", "微軟正黑體", sans-serif !important;
         }
         
-        /* 主畫面：白底 */
+        /* 背景純白 */
         .stApp {
             background-color: #FFFFFF !important;
         }
         
-        /* 預設文字：全黑 (標題、段落、標籤) */
+        /* 一般文字：強制全黑 */
         h1, h2, h3, h4, h5, h6, p, label, span, div, li, small {
             color: #000000 !important;
         }
 
         /* ============================
-           2. 按鈕專區 (解決黑吃黑，強制黑底白字)
+           2. 按鈕專區 (由黑吃黑改為黑底白字)
            ============================ */
         
-        /* 通用按鈕 + 表單提交按鈕 + 上傳按鈕 */
+        /* 鎖定所有類型的按鈕：一般按鈕、表單提交按鈕、上傳按鈕 */
         button, 
-        div[data-testid="stFormSubmitButton"] button,
-        div[data-testid="stFileUploader"] button {
+        [data-testid="baseButton-secondary"],
+        [data-testid="baseButton-primary"],
+        [data-testid="stFormSubmitButton"] button,
+        [data-testid="stFileUploader"] button {
             background-color: #000000 !important;
-            color: #FFFFFF !important; /* ★ 關鍵：文字強制變白 ★ */
+            color: #FFFFFF !important; /* ★文字強制變白★ */
             border: 2px solid #000000 !important;
-            border-radius: 0px !important; /* 直角 */
+            border-radius: 0px !important; /* 直角風格 */
             font-weight: 800 !important;
         }
 
-        /* 按鈕 Hover 效果：變白底黑字 */
+        /* 按鈕滑鼠懸停 (Hover) */
         button:hover,
-        div[data-testid="stFormSubmitButton"] button:hover,
-        div[data-testid="stFileUploader"] button:hover {
-            background-color: #FFFFFF !important;
-            color: #000000 !important;
+        [data-testid="baseButton-secondary"]:hover,
+        [data-testid="baseButton-primary"]:hover,
+        [data-testid="stFormSubmitButton"] button:hover,
+        [data-testid="stFileUploader"] button:hover {
+            background-color: #FFFFFF !important; /* 變白底 */
+            color: #000000 !important; /* 變黑字 */
+        }
+        
+        /* 修正上傳按鈕內部文字 (避免被 span 黑色規則蓋過去) */
+        [data-testid="stFileUploader"] button span {
+            color: inherit !important;
         }
 
         /* ============================
            3. 上傳視窗專區 (File Uploader)
            ============================ */
         
-        /* 拖放區域的文字 (Drag and drop file here) 要是黑色的 */
-        div[data-testid="stFileUploader"] section {
-            background-color: #FFFFFF !important; /* 背景白 */
+        /* 拖放區域背景白 */
+        [data-testid="stFileUploader"] section {
+            background-color: #F8F9FA !important;
+            border: 2px dashed #000000 !important;
         }
-        div[data-testid="stFileUploader"] section span, 
-        div[data-testid="stFileUploader"] section small, 
-        div[data-testid="stFileUploader"] section div {
-            color: #000000 !important; /* 文字黑 */
+        /* 拖放區域的提示文字 (Drag and drop...) 要是黑的 */
+        [data-testid="stFileUploader"] section span, 
+        [data-testid="stFileUploader"] section small, 
+        [data-testid="stFileUploader"] section div {
+            color: #000000 !important;
         }
-        /* 但裡面的 Browse files 按鈕維持上面的設定 (黑底白字) */
 
         /* ============================
            4. 側邊欄 (Sidebar) 
@@ -81,23 +91,15 @@ def inject_custom_css():
             background-color: #000000 !important;
             border-right: 1px solid #333;
         }
-        /* 側邊欄內的所有文字強制變白 */
+        /* 側邊欄文字強制白 */
         [data-testid="stSidebar"] * {
             color: #FFFFFF !important;
         }
         
-        /* Logo */
-        .sidebar-logo {
-            font-size: 24px; font-weight: 800; margin-bottom: 20px; 
-            color: #FFFFFF !important;
-            border: 2px solid #FFFFFF;
-            padding: 10px;
-            text-align: center;
-        }
-
         /* ============================
-           5. 輸入元件 & 其他修復
+           5. 輸入框與其他修復
            ============================ */
+        /* 輸入框：白底黑字黑框 */
         .stTextInput input, .stNumberInput input, .stSelectbox div[data-baseweb="select"] > div {
             background-color: #FFFFFF !important;
             color: #000000 !important;
@@ -123,15 +125,6 @@ def inject_custom_css():
             color: #000000 !important;
         }
 
-        /* 卡片設計 */
-        div[data-testid="stVerticalBlockBorderWrapper"] {
-            background-color: #FFFFFF;
-            border: 2px solid #000000;
-            border-radius: 0px;
-            padding: 20px;
-            box-shadow: 5px 5px 0px #000000;
-        }
-
         /* 價格標籤 (黑底白字) */
         .price-tag {
             background-color: #000000; 
@@ -141,16 +134,32 @@ def inject_custom_css():
             font-weight: 800; font-size: 20px;
             display: inline-block; margin-bottom: 12px;
         }
-        .price-tag span {
-            color: #FFFFFF !important;
+        .price-tag span { color: #FFFFFF !important; }
+
+        /* 卡片設計 */
+        div[data-testid="stVerticalBlockBorderWrapper"] {
+            background-color: #FFFFFF;
+            border: 2px solid #000000;
+            border-radius: 0px;
+            padding: 20px;
+            box-shadow: 5px 5px 0px #000000;
         }
         
-        /* 確保漢堡選單按鈕看得到 */
+        /* 確保選單按鈕不被隱藏 */
         header[data-testid="stHeader"] {
             background-color: #FFFFFF !important;
         }
         button[kind="header"] {
             color: #000000 !important;
+        }
+        
+        /* Logo */
+        .sidebar-logo {
+            font-size: 24px; font-weight: 800; margin-bottom: 20px; 
+            color: #FFFFFF !important;
+            border: 2px solid #FFFFFF;
+            padding: 10px;
+            text-align: center;
         }
 
     </style>
@@ -196,7 +205,7 @@ init_db()
 
 # --- 4. 側邊欄導航 ---
 st.sidebar.markdown('<div class="sidebar-logo">NX ENERGY</div>', unsafe_allow_html=True)
-st.sidebar.caption("v10.0 Final")
+st.sidebar.caption("v10.0 Pro")
 st.sidebar.markdown("---")
 page = st.sidebar.radio("MENU", ["👤 員工點餐", "🤖 菜單管理 (AI)", "💰 儲值作業", "📊 每日匯總", "⚙️ 人員管理"], label_visibility="collapsed")
 
@@ -298,8 +307,8 @@ elif page == "🤖 菜單管理 (AI)":
                         try:
                             img_parts = [{"mime_type": uploaded_file.type, "data": uploaded_file.getvalue()}]
                             
-                            # [修正] 配合 requirements.txt 升級，改回 flash 模型
-                            model = genai.GenerativeModel('gemini-1.5-flash')
+                            # [修正] 改用 gemini-1.5-pro (最強模型，避開 flash 404 問題)
+                            model = genai.GenerativeModel('gemini-1.5-pro')
                             
                             response = model.generate_content(["Extract menu items to JSON list [{'dish_name':'', 'price':0}]. No markdown.", img_parts[0]])
                             
@@ -386,7 +395,8 @@ elif page == "⚙️ 人員管理":
     with st.form("add_user"):
         n = st.text_input("姓名")
         b = st.number_input("初始金", value=0)
-        # CSS 已強制此按鈕黑底白字
+        
+        # CSS 已強制按鈕黑底白字
         if st.form_submit_button("新增"):
             try:
                 with get_db_connection() as conn:
@@ -407,16 +417,4 @@ elif page == "⚙️ 人員管理":
         users = pd.read_sql("SELECT * FROM Users", conn)
     st.dataframe(users, use_container_width=True)
     
-    # [修正] 加上垃圾桶圖示
-    st.subheader("🗑️ 刪除員工")
-    with st.form("del_user"):
-        to_del = st.selectbox("選擇刪除對象", users['name'].tolist() if not users.empty else [])
-        
-        # CSS 已強制此按鈕黑底白字
-        if st.form_submit_button("確認刪除"):
-            with get_db_connection() as conn:
-                conn.execute("DELETE FROM Users WHERE name=?", (to_del,))
-                conn.commit()
-            st.warning(f"已刪除 {to_del}")
-            time.sleep(1)
-            st.rerun()
+    # [修正
