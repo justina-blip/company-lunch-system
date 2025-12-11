@@ -17,7 +17,7 @@ else:
     # 避免崩潰，僅顯示警告
     pass 
 
-# --- 2. CSS 暴力修復版 (針對看不到字的元件逐一擊破) ---
+# --- 2. CSS 最終暴力修復版 (救回按鈕文字 + 修正所有顯示問題) ---
 def inject_custom_css():
     st.markdown("""
     <style>
@@ -33,13 +33,46 @@ def inject_custom_css():
             background-color: #FFFFFF !important;
         }
         
-        /* 標題與一般文字：全黑 */
-        h1, h2, h3, h4, h5, h6, p, label, span, div {
+        /* 一般文字：預設全黑 (標題、段落、標籤) */
+        h1, h2, h3, h4, h5, h6, p, label, span, div, li {
             color: #000000 !important;
         }
 
         /* ============================
-           2. 側邊欄 (Sidebar) 
+           2. 按鈕專區 (最關鍵修復：解決黑吃黑)
+           ============================ */
+        
+        /* 強制所有按鈕：黑底、白字、黑框 */
+        button, 
+        div[data-testid="stFileUploader"] button,
+        div[data-testid="stFormSubmitButton"] button,
+        .stButton > button {
+            background-color: #000000 !important;
+            color: #FFFFFF !important; /* 文字強制變白，解決看不到字的問題 */
+            border: 2px solid #000000 !important;
+            border-radius: 0px !important; /* 直角 */
+            font-weight: 800 !important;
+        }
+
+        /* 按鈕 Hover 效果：變白底黑字 */
+        button:hover,
+        div[data-testid="stFileUploader"] button:hover,
+        div[data-testid="stFormSubmitButton"] button:hover,
+        .stButton > button:hover {
+            background-color: #FFFFFF !important;
+            color: #000000 !important;
+        }
+
+        /* 修正上傳檔案按鈕裡面的小字 (如 "Browse files") */
+        [data-testid="stFileUploader"] section {
+            color: #000000 !important;
+        }
+        [data-testid="stFileUploader"] section small {
+            color: #000000 !important;
+        }
+
+        /* ============================
+           3. 側邊欄 (Sidebar) 
            ============================ */
         [data-testid="stSidebar"] {
             background-color: #000000 !important;
@@ -63,30 +96,18 @@ def inject_custom_css():
         }
 
         /* ============================
-           3. 暴力修復看不到字的區域
+           4. 輸入元件 (Input)
            ============================ */
-        
-        /* [修復 A] 警示框 (Warning, Error, Success, Info) */
-        /* 強制警示框內的文字為黑色，避免被系統預設的淺色文字蓋過去 */
-        div[data-baseweb="notification"] * {
-            color: #000000 !important;
-        }
-        .stAlert {
-            color: #000000 !important;
-        }
-
-        /* [修復 B] 輸入框 (Input) */
         .stTextInput input, .stNumberInput input, .stSelectbox div[data-baseweb="select"] > div {
             background-color: #FFFFFF !important;
-            color: #000000 !important;
-            -webkit-text-fill-color: #000000 !important; /* Safari/Chrome 必備 */
-            caret-color: #000000 !important; /* 游標黑色 */
+            color: #000000 !important; /* 輸入文字黑色 */
+            -webkit-text-fill-color: #000000 !important;
+            caret-color: #000000 !important;
             border: 2px solid #000000 !important;
             border-radius: 0px !important;
         }
 
-        /* [修復 C] 下拉選單浮動視窗 (Popover) */
-        /* 這是最容易變白字的地方 */
+        /* 下拉選單浮動視窗 */
         div[data-baseweb="popover"] {
             background-color: #FFFFFF !important;
         }
@@ -94,22 +115,25 @@ def inject_custom_css():
             color: #000000 !important;
             background-color: #FFFFFF !important;
         }
+
+        /* ============================
+           5. 其他元件修復
+           ============================ */
         
-        /* [修復 D] 展開元件 (Expander) */
-        div[data-testid="stExpander"] * {
+        /* 警示框 (Alerts) 文字強制黑 */
+        div[data-baseweb="notification"] * {
+            color: #000000 !important;
+        }
+        .stAlert {
             color: #000000 !important;
         }
         
-        /* [修復 E] 表格 (Dataframe) */
+        /* 表格 (Dataframe) 文字強制黑 */
         div[data-testid="stDataFrame"] * {
             color: #000000 !important;
         }
 
-        /* ============================
-           4. 介面元件美化 (黑白風格)
-           ============================ */
-
-        /* 卡片 */
+        /* 卡片設計 */
         div[data-testid="stVerticalBlockBorderWrapper"] {
             background-color: #FFFFFF;
             border: 2px solid #000000;
@@ -117,40 +141,26 @@ def inject_custom_css():
             padding: 20px;
             box-shadow: 5px 5px 0px #000000;
         }
-        div[data-testid="stVerticalBlockBorderWrapper"] p, 
-        div[data-testid="stVerticalBlockBorderWrapper"] h4 {
-            color: #000000 !important;
-        }
 
-        /* 價格標籤 */
+        /* 價格標籤 (黑底白字) */
         .price-tag {
             background-color: #000000; 
-            color: #FFFFFF !important; /* 這裡要白字 */
+            color: #FFFFFF !important; /* 白字 */
             padding: 6px 16px; 
             border-radius: 50px;
             font-weight: 800; font-size: 20px;
             display: inline-block; margin-bottom: 12px;
         }
-
-        /* 按鈕 */
-        .stButton > button {
-            background-color: #000000 !important;
+        .price-tag span {
             color: #FFFFFF !important;
-            border-radius: 0px !important;
-            border: 2px solid #000000 !important;
-            font-weight: 800 !important;
-        }
-        .stButton > button:hover {
-            background-color: #FFFFFF !important; 
-            color: #000000 !important;
         }
         
-        /* 確保漢堡選單按鈕看得到 (不隱藏 Header) */
+        /* 確保漢堡選單按鈕看得到 */
         header[data-testid="stHeader"] {
-            background-color: #FFFFFF !important; /* 確保 Header 背景是白的 */
+            background-color: #FFFFFF !important;
         }
         button[kind="header"] {
-            color: #000000 !important; /* 按鈕黑色 */
+            color: #000000 !important;
         }
 
     </style>
@@ -196,7 +206,7 @@ init_db()
 
 # --- 4. 側邊欄導航 ---
 st.sidebar.markdown('<div class="sidebar-logo">NX ENERGY</div>', unsafe_allow_html=True)
-st.sidebar.caption("v8.0 Final Fix")
+st.sidebar.caption("v9.0 Final")
 st.sidebar.markdown("---")
 page = st.sidebar.radio("MENU", ["👤 員工點餐", "🤖 菜單管理 (AI)", "💰 儲值作業", "📊 每日匯總", "⚙️ 人員管理"], label_visibility="collapsed")
 
@@ -256,6 +266,7 @@ if page == "👤 員工點餐":
                 st.divider()
                 st.markdown("**確認後將直接扣款**")
                 
+                # CSS已強制所有按鈕為黑底白字，這裡的確認按鈕也會受惠
                 if st.button("✅ 確認下單", use_container_width=True):
                     try:
                         with get_db_connection() as conn:
@@ -301,8 +312,8 @@ elif page == "🤖 菜單管理 (AI)":
                         try:
                             img_parts = [{"mime_type": uploaded_file.type, "data": uploaded_file.getvalue()}]
                             
-                            # [修正] 改回最原始的模型名稱，解決 404
-                            model = genai.GenerativeModel('gemini-1.5-flash')
+                            # [修正] 使用 gemini-pro 解決 404 問題
+                            model = genai.GenerativeModel('gemini-pro')
                             
                             response = model.generate_content(["Extract menu items to JSON list [{'dish_name':'', 'price':0}]. No markdown.", img_parts[0]])
                             
@@ -383,32 +394,38 @@ elif page == "📊 每日匯總":
 elif page == "⚙️ 人員管理":
     st.header("人員管理")
     
-    with st.expander("➕ 新增員工"):
-        with st.form("add_user"):
-            n = st.text_input("姓名")
-            b = st.number_input("初始金", value=0)
-            if st.form_submit_button("新增"):
-                try:
-                    with get_db_connection() as conn:
-                        cur = conn.cursor()
-                        cur.execute("INSERT INTO Users (name, current_balance) VALUES (?, ?)", (n, b))
-                        uid = cur.lastrowid
-                        cur.execute("INSERT INTO Transactions (user_id, type, amount, note) VALUES (?, 'INIT', ?, '開戶')", (uid, b))
-                        conn.commit()
-                    st.success("新增成功")
-                    time.sleep(1)
-                    st.rerun()
-                except:
-                    st.error("姓名重複")
+    # [修正] 移除 st.expander，直接顯示新增表單
+    st.subheader("➕ 新增員工")
+    with st.form("add_user"):
+        n = st.text_input("姓名")
+        b = st.number_input("初始金", value=0)
+        # CSS 已強制此按鈕為黑底白字
+        if st.form_submit_button("新增"):
+            try:
+                with get_db_connection() as conn:
+                    cur = conn.cursor()
+                    cur.execute("INSERT INTO Users (name, current_balance) VALUES (?, ?)", (n, b))
+                    uid = cur.lastrowid
+                    cur.execute("INSERT INTO Transactions (user_id, type, amount, note) VALUES (?, 'INIT', ?, '開戶')", (uid, b))
+                    conn.commit()
+                st.success("新增成功")
+                time.sleep(1)
+                st.rerun()
+            except:
+                st.error("姓名重複")
 
+    st.markdown("---")
+    
     with get_db_connection() as conn:
         users = pd.read_sql("SELECT * FROM Users", conn)
     st.dataframe(users, use_container_width=True)
     
     # 刪除功能
-    st.markdown("#### 刪除員工")
+    st.subheader("刪除員工")
     with st.form("del_user"):
         to_del = st.selectbox("選擇刪除對象", users['name'].tolist() if not users.empty else [])
+        
+        # CSS 已強制此按鈕為黑底白字
         if st.form_submit_button("確認刪除"):
             with get_db_connection() as conn:
                 conn.execute("DELETE FROM Users WHERE name=?", (to_del,))
