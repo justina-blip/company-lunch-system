@@ -13,14 +13,14 @@ st.set_page_config(page_title="SmartCanteen B&W", layout="wide", initial_sidebar
 if "GEMINI_API_KEY" in st.secrets:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 else:
-    # 避免因為沒有 Key 而直接崩潰，改為顯示警告
+    # 避免崩潰，僅顯示警告
     pass 
 
-# --- 2. CSS 安全修復版 (移除濾鏡，強制指定顏色) ---
+# --- 2. CSS 極致黑白化 (安全版 - 手動指定顏色，防止白屏) ---
 def inject_custom_css():
     st.markdown("""
     <style>
-        /* 1. 字體設定 */
+        /* 1. 字體設定：微軟正黑體 */
         html, body, .stApp, button, input, select, textarea {
             font-family: "Microsoft JhengHei", "微軟正黑體", sans-serif !important;
         }
@@ -28,18 +28,15 @@ def inject_custom_css():
         /* 2. 強制主畫面：白底黑字 */
         .stApp {
             background-color: #FFFFFF !important;
-        }
-        /* 強制所有主區塊文字變黑 (解決深色模式變白字的問題) */
-        .main p, .main h1, .main h2, .main h3, .main span, .main div, .main label {
             color: #000000 !important;
         }
-
+        
         /* 3. 側邊欄：純黑底白字 */
         [data-testid="stSidebar"] {
             background-color: #000000 !important;
             border-right: 1px solid #333;
         }
-        [data-testid="stSidebar"] h1, [data-testid="stSidebar"] p, [data-testid="stSidebar"] span, [data-testid="stSidebar"] div, [data-testid="stSidebar"] label {
+        [data-testid="stSidebar"] * {
             color: #FFFFFF !important;
         }
         
@@ -52,16 +49,16 @@ def inject_custom_css():
             text-align: center;
         }
 
-        /* 4. 輸入框：白底黑字黑框 */
+        /* 4. 輸入框：白底黑字 + 黑框 */
         .stTextInput input, .stNumberInput input, .stSelectbox div[data-baseweb="select"] > div {
             background-color: #FFFFFF !important;
             color: #000000 !important;
-            -webkit-text-fill-color: #000000 !important; /* Safari/Chrome */
+            -webkit-text-fill-color: #000000 !important;
             caret-color: #000000 !important;
             border: 2px solid #000000 !important;
-            border-radius: 0px !important;
+            border-radius: 0px !important; /* 直角設計 */
         }
-        /* 下拉選單文字修正 */
+        /* 下拉選單選項修正 */
         div[data-baseweb="popover"] li {
             color: #000000 !important;
             background-color: #FFFFFF !important;
@@ -69,33 +66,35 @@ def inject_custom_css():
         div[data-testid="stSelectboxVirtualDropdown"] {
             color: #000000 !important;
         }
+        ul[data-testid="stSelectboxVirtualDropdown"] { background-color: #FFFFFF !important; }
+        li[role="option"] { color: #000000 !important; }
 
-        /* 5. 卡片式設計 */
+        /* 5. 卡片式設計 (雜誌風格) */
         div[data-testid="stVerticalBlockBorderWrapper"] {
             background-color: #FFFFFF;
             border: 2px solid #000000;
             border-radius: 0px;
             padding: 20px;
-            box-shadow: 4px 4px 0px #000000;
+            box-shadow: 4px 4px 0px #000000; /* 復古黑影 */
         }
-        /* 修正卡片內的文字顏色 */
+        /* 修正卡片內文字顏色 */
         div[data-testid="stVerticalBlockBorderWrapper"] p, 
         div[data-testid="stVerticalBlockBorderWrapper"] h4,
         div[data-testid="stVerticalBlockBorderWrapper"] div {
             color: #000000 !important;
         }
 
-        /* 6. 價格標籤 */
+        /* 6. 價格標籤 (黑底白字) */
         .price-tag {
             background-color: #000000; 
-            color: #FFFFFF !important; /* 這裡要白字 */
+            color: #FFFFFF !important;
             padding: 6px 16px; 
             border-radius: 50px;
             font-weight: 800; font-size: 20px;
             display: inline-block; margin-bottom: 12px;
         }
 
-        /* 7. 按鈕 */
+        /* 7. 按鈕 (純黑實心) */
         .stButton > button {
             background-color: #000000 !important;
             color: #FFFFFF !important;
@@ -104,7 +103,7 @@ def inject_custom_css():
             font-weight: 800 !important;
         }
         .stButton > button:hover {
-            background-color: #FFFFFF !important;
+            background-color: #FFFFFF !important; /* Hover 變反白 */
             color: #000000 !important;
         }
 
@@ -118,6 +117,10 @@ def inject_custom_css():
 
         /* 隱藏 Header */
         header {visibility: hidden;}
+        
+        /* 強制標題顏色 */
+        h1, h2, h3 { color: #000000 !important; font-weight: 900 !important; }
+        [data-testid="stSidebar"] h1 { color: #FFFFFF !important; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -161,7 +164,7 @@ init_db()
 
 # --- 4. 側邊欄導航 ---
 st.sidebar.markdown('<div class="sidebar-logo">NX ENERGY</div>', unsafe_allow_html=True)
-st.sidebar.caption("MONOCHROME v4.0")
+st.sidebar.caption("MONOCHROME v5.0")
 st.sidebar.markdown("---")
 page = st.sidebar.radio("MENU", ["👤 員工點餐", "🤖 菜單管理 (AI)", "💰 儲值作業", "📊 每日匯總", "⚙️ 人員管理"], label_visibility="collapsed")
 
@@ -175,7 +178,7 @@ if page == "👤 員工點餐":
         users = pd.read_sql("SELECT user_id, name, current_balance FROM Users", conn)
     
     if users.empty:
-        st.warning("⚠️ 無員工資料")
+        st.warning("⚠️ 無員工資料，請先至「人員管理」新增。")
     else:
         # 頂部資訊
         c1, c2 = st.columns([2, 1])
@@ -239,7 +242,6 @@ if page == "👤 員工點餐":
             for idx, row in menu_df.iterrows():
                 with cols[idx % 3]:
                     with st.container(border=True):
-                        # 手動指定顏色，確保不會變白
                         st.markdown(f"<div style='text-align:center'><span class='price-tag'>${row['price']}</span></div>", unsafe_allow_html=True)
                         st.markdown(f"<h4 style='text-align:center; color:#000000; margin:0;'>{row['dish_name']}</h4>", unsafe_allow_html=True)
                         st.markdown("<div style='margin-bottom:15px'></div>", unsafe_allow_html=True)
@@ -261,11 +263,12 @@ elif page == "🤖 菜單管理 (AI)":
         if st.session_state['menu_df'] is None:
             if st.button("開始 AI 辨識"):
                 if "GEMINI_API_KEY" not in st.secrets:
-                     st.error("⚠️ 請先設定 API Key 才能使用此功能")
+                     st.error("⚠️ 請先設定 API Key")
                 else:
                     with st.spinner("AI 分析中..."):
                         try:
                             img_parts = [{"mime_type": uploaded_file.type, "data": uploaded_file.getvalue()}]
+                            # 使用最新版模型解決 404
                             model = genai.GenerativeModel('gemini-1.5-flash-latest')
                             response = model.generate_content(["Extract menu items to JSON list [{'dish_name':'', 'price':0}]. No markdown.", img_parts[0]])
                             
@@ -368,8 +371,15 @@ elif page == "⚙️ 人員管理":
         users = pd.read_sql("SELECT * FROM Users", conn)
     st.dataframe(users, use_container_width=True)
     
+    # 刪除功能
     st.markdown("#### 刪除員工")
     with st.form("del_user"):
         to_del = st.selectbox("選擇刪除對象", users['name'].tolist() if not users.empty else [])
         if st.form_submit_button("確認刪除"):
-            with get_db_connection
+            # 修正了這裡的語法錯誤：加上了 () 和 as conn:
+            with get_db_connection() as conn:
+                conn.execute("DELETE FROM Users WHERE name=?", (to_del,))
+                conn.commit()
+            st.warning(f"已刪除 {to_del}")
+            time.sleep(1)
+            st.rerun()
