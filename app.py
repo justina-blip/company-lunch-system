@@ -7,22 +7,20 @@ import time
 import json
 
 # --- 1. 設定與 API Key ---
-# initial_sidebar_state="expanded" -> 預設展開側邊欄
-st.set_page_config(page_title="SmartCanteen B&W", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="SmartCanteen Final", layout="wide", initial_sidebar_state="expanded")
 
 # 讀取 API Key
 if "GEMINI_API_KEY" in st.secrets:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 else:
-    # 避免崩潰，僅顯示警告
     pass 
 
-# --- 2. CSS 最終暴力修復版 (救回按鈕文字 + 修正所有顯示問題) ---
+# --- 2. CSS 最終精準修復版 (針對按鈕與上傳視窗做顯色手術) ---
 def inject_custom_css():
     st.markdown("""
     <style>
         /* ============================
-           1. 全域字體與基礎設定
+           1. 全域基礎設定
            ============================ */
         html, body, .stApp, button, input, select, textarea {
             font-family: "Microsoft JhengHei", "微軟正黑體", sans-serif !important;
@@ -33,22 +31,21 @@ def inject_custom_css():
             background-color: #FFFFFF !important;
         }
         
-        /* 一般文字：預設全黑 (標題、段落、標籤) */
-        h1, h2, h3, h4, h5, h6, p, label, span, div, li {
+        /* 預設文字：全黑 (標題、段落、標籤) */
+        h1, h2, h3, h4, h5, h6, p, label, span, div, li, small {
             color: #000000 !important;
         }
 
         /* ============================
-           2. 按鈕專區 (最關鍵修復：解決黑吃黑)
+           2. 按鈕專區 (解決黑吃黑，強制黑底白字)
            ============================ */
         
-        /* 強制所有按鈕：黑底、白字、黑框 */
+        /* 通用按鈕 + 表單提交按鈕 + 上傳按鈕 */
         button, 
-        div[data-testid="stFileUploader"] button,
         div[data-testid="stFormSubmitButton"] button,
-        .stButton > button {
+        div[data-testid="stFileUploader"] button {
             background-color: #000000 !important;
-            color: #FFFFFF !important; /* 文字強制變白，解決看不到字的問題 */
+            color: #FFFFFF !important; /* ★ 關鍵：文字強制變白 ★ */
             border: 2px solid #000000 !important;
             border-radius: 0px !important; /* 直角 */
             font-weight: 800 !important;
@@ -56,34 +53,37 @@ def inject_custom_css():
 
         /* 按鈕 Hover 效果：變白底黑字 */
         button:hover,
-        div[data-testid="stFileUploader"] button:hover,
         div[data-testid="stFormSubmitButton"] button:hover,
-        .stButton > button:hover {
+        div[data-testid="stFileUploader"] button:hover {
             background-color: #FFFFFF !important;
             color: #000000 !important;
         }
 
-        /* 修正上傳檔案按鈕裡面的小字 (如 "Browse files") */
-        [data-testid="stFileUploader"] section {
-            color: #000000 !important;
+        /* ============================
+           3. 上傳視窗專區 (File Uploader)
+           ============================ */
+        
+        /* 拖放區域的文字 (Drag and drop file here) 要是黑色的 */
+        div[data-testid="stFileUploader"] section {
+            background-color: #FFFFFF !important; /* 背景白 */
         }
-        [data-testid="stFileUploader"] section small {
-            color: #000000 !important;
+        div[data-testid="stFileUploader"] section span, 
+        div[data-testid="stFileUploader"] section small, 
+        div[data-testid="stFileUploader"] section div {
+            color: #000000 !important; /* 文字黑 */
         }
+        /* 但裡面的 Browse files 按鈕維持上面的設定 (黑底白字) */
 
         /* ============================
-           3. 側邊欄 (Sidebar) 
+           4. 側邊欄 (Sidebar) 
            ============================ */
         [data-testid="stSidebar"] {
             background-color: #000000 !important;
             border-right: 1px solid #333;
         }
-        /* 側邊欄內的所有文字強制變白 (覆蓋上面的全黑設定) */
+        /* 側邊欄內的所有文字強制變白 */
         [data-testid="stSidebar"] * {
             color: #FFFFFF !important;
-        }
-        [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 {
-             color: #FFFFFF !important;
         }
         
         /* Logo */
@@ -96,11 +96,11 @@ def inject_custom_css():
         }
 
         /* ============================
-           4. 輸入元件 (Input)
+           5. 輸入元件 & 其他修復
            ============================ */
         .stTextInput input, .stNumberInput input, .stSelectbox div[data-baseweb="select"] > div {
             background-color: #FFFFFF !important;
-            color: #000000 !important; /* 輸入文字黑色 */
+            color: #000000 !important;
             -webkit-text-fill-color: #000000 !important;
             caret-color: #000000 !important;
             border: 2px solid #000000 !important;
@@ -108,27 +108,17 @@ def inject_custom_css():
         }
 
         /* 下拉選單浮動視窗 */
-        div[data-baseweb="popover"] {
-            background-color: #FFFFFF !important;
-        }
         div[data-baseweb="popover"] li, div[data-baseweb="popover"] div {
             color: #000000 !important;
             background-color: #FFFFFF !important;
         }
-
-        /* ============================
-           5. 其他元件修復
-           ============================ */
         
-        /* 警示框 (Alerts) 文字強制黑 */
+        /* 警示框文字強制黑 */
         div[data-baseweb="notification"] * {
             color: #000000 !important;
         }
-        .stAlert {
-            color: #000000 !important;
-        }
         
-        /* 表格 (Dataframe) 文字強制黑 */
+        /* 表格文字強制黑 */
         div[data-testid="stDataFrame"] * {
             color: #000000 !important;
         }
@@ -145,7 +135,7 @@ def inject_custom_css():
         /* 價格標籤 (黑底白字) */
         .price-tag {
             background-color: #000000; 
-            color: #FFFFFF !important; /* 白字 */
+            color: #FFFFFF !important;
             padding: 6px 16px; 
             border-radius: 50px;
             font-weight: 800; font-size: 20px;
@@ -206,7 +196,7 @@ init_db()
 
 # --- 4. 側邊欄導航 ---
 st.sidebar.markdown('<div class="sidebar-logo">NX ENERGY</div>', unsafe_allow_html=True)
-st.sidebar.caption("v9.0 Final")
+st.sidebar.caption("v10.0 Final")
 st.sidebar.markdown("---")
 page = st.sidebar.radio("MENU", ["👤 員工點餐", "🤖 菜單管理 (AI)", "💰 儲值作業", "📊 每日匯總", "⚙️ 人員管理"], label_visibility="collapsed")
 
@@ -222,7 +212,6 @@ if page == "👤 員工點餐":
     if users.empty:
         st.warning("⚠️ 無員工資料，請先至「人員管理」新增。")
     else:
-        # 頂部資訊
         c1, c2 = st.columns([2, 1])
         with c1:
             user_names = users['name'].tolist()
@@ -237,7 +226,6 @@ if page == "👤 員工點餐":
         
         st.divider()
 
-        # 歷史紀錄
         with st.expander("🧾 查看本月消費紀錄"):
             with get_db_connection() as conn:
                 first_day = datetime.date.today().replace(day=1).strftime('%Y-%m-%d')
@@ -266,7 +254,6 @@ if page == "👤 員工點餐":
                 st.divider()
                 st.markdown("**確認後將直接扣款**")
                 
-                # CSS已強制所有按鈕為黑底白字，這裡的確認按鈕也會受惠
                 if st.button("✅ 確認下單", use_container_width=True):
                     try:
                         with get_db_connection() as conn:
@@ -280,7 +267,6 @@ if page == "👤 員工點餐":
                     except Exception as e:
                         st.error(f"錯誤: {e}")
 
-            # 卡片 Grid
             cols = st.columns(3)
             for idx, row in menu_df.iterrows():
                 with cols[idx % 3]:
@@ -312,8 +298,8 @@ elif page == "🤖 菜單管理 (AI)":
                         try:
                             img_parts = [{"mime_type": uploaded_file.type, "data": uploaded_file.getvalue()}]
                             
-                            # [修正] 使用 gemini-pro 解決 404 問題
-                            model = genai.GenerativeModel('gemini-pro')
+                            # [修正] 配合 requirements.txt 升級，改回 flash 模型
+                            model = genai.GenerativeModel('gemini-1.5-flash')
                             
                             response = model.generate_content(["Extract menu items to JSON list [{'dish_name':'', 'price':0}]. No markdown.", img_parts[0]])
                             
@@ -322,7 +308,7 @@ elif page == "🤖 菜單管理 (AI)":
                                 data = json.loads(text)
                                 st.session_state['menu_df'] = pd.DataFrame(data)
                             except json.JSONDecodeError:
-                                st.error("AI 回傳格式錯誤，請重試或檢查圖片清晰度。")
+                                st.error("AI 回傳格式錯誤，請重試或檢查圖片。")
                                 
                         except Exception as e:
                             st.error(f"AI 連線失敗: {e}")
@@ -360,6 +346,7 @@ elif page == "💰 儲值作業":
                 name = c1.selectbox("員工", users['name'].tolist())
                 amount = c2.number_input("金額", step=100, value=1000)
                 
+                # CSS 已強制此按鈕黑底白字
                 if st.form_submit_button("確認儲值"):
                     with get_db_connection() as conn:
                         uid = conn.execute("SELECT user_id FROM Users WHERE name=?", (name,)).fetchone()[0]
@@ -394,12 +381,12 @@ elif page == "📊 每日匯總":
 elif page == "⚙️ 人員管理":
     st.header("人員管理")
     
-    # [修正] 移除 st.expander，直接顯示新增表單
+    # [修正] 直接展開表單
     st.subheader("➕ 新增員工")
     with st.form("add_user"):
         n = st.text_input("姓名")
         b = st.number_input("初始金", value=0)
-        # CSS 已強制此按鈕為黑底白字
+        # CSS 已強制此按鈕黑底白字
         if st.form_submit_button("新增"):
             try:
                 with get_db_connection() as conn:
@@ -420,12 +407,12 @@ elif page == "⚙️ 人員管理":
         users = pd.read_sql("SELECT * FROM Users", conn)
     st.dataframe(users, use_container_width=True)
     
-    # 刪除功能
-    st.subheader("刪除員工")
+    # [修正] 加上垃圾桶圖示
+    st.subheader("🗑️ 刪除員工")
     with st.form("del_user"):
         to_del = st.selectbox("選擇刪除對象", users['name'].tolist() if not users.empty else [])
         
-        # CSS 已強制此按鈕為黑底白字
+        # CSS 已強制此按鈕黑底白字
         if st.form_submit_button("確認刪除"):
             with get_db_connection() as conn:
                 conn.execute("DELETE FROM Users WHERE name=?", (to_del,))
