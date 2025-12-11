@@ -206,7 +206,7 @@ init_db()
 
 # --- 4. 側邊欄導航 ---
 st.sidebar.markdown('<div class="sidebar-logo">NX ENERGY</div>', unsafe_allow_html=True)
-st.sidebar.caption("v11.0 White")
+st.sidebar.caption("v12.0 White Flash")
 st.sidebar.markdown("---")
 page = st.sidebar.radio("MENU", ["👤 員工點餐", "🤖 菜單管理 (AI)", "💰 儲值作業", "📊 每日匯總", "⚙️ 人員管理"], label_visibility="collapsed")
 
@@ -308,8 +308,8 @@ elif page == "🤖 菜單管理 (AI)":
                         try:
                             img_parts = [{"mime_type": uploaded_file.type, "data": uploaded_file.getvalue()}]
                             
-                            # [維持] gemini-1.5-pro (支援圖片 + 減少 404)
-                            model = genai.GenerativeModel('gemini-1.5-pro')
+                            # [關鍵修正] 改回 flash，並依賴 requirements.txt 的升級
+                            model = genai.GenerativeModel('gemini-1.5-flash')
                             
                             response = model.generate_content(["Extract menu items to JSON list [{'dish_name':'', 'price':0}]. No markdown.", img_parts[0]])
                             
@@ -356,7 +356,6 @@ elif page == "💰 儲值作業":
                 name = c1.selectbox("員工", users['name'].tolist())
                 amount = c2.number_input("金額", step=100, value=1000)
                 
-                # CSS 已強制此按鈕白底黑字黑框
                 if st.form_submit_button("確認儲值"):
                     with get_db_connection() as conn:
                         uid = conn.execute("SELECT user_id FROM Users WHERE name=?", (name,)).fetchone()[0]
@@ -397,7 +396,6 @@ elif page == "⚙️ 人員管理":
         n = st.text_input("姓名")
         b = st.number_input("初始金", value=0)
         
-        # CSS 已強制按鈕白底黑字黑框
         if st.form_submit_button("新增"):
             try:
                 with get_db_connection() as conn:
@@ -423,7 +421,6 @@ elif page == "⚙️ 人員管理":
     with st.form("del_user"):
         to_del = st.selectbox("選擇刪除對象", users['name'].tolist() if not users.empty else [])
         
-        # CSS 已強制按鈕白底黑字黑框
         if st.form_submit_button("確認刪除"):
             with get_db_connection() as conn:
                 conn.execute("DELETE FROM Users WHERE name=?", (to_del,))
