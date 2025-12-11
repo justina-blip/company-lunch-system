@@ -7,108 +7,50 @@ import time
 import json
 
 # --- 1. 設定與 API Key ---
-# initial_sidebar_state="expanded" -> 讓側邊欄預設展開
-st.set_page_config(page_title="SmartCanteen", layout="wide", initial_sidebar_state="expanded")
+# initial_sidebar_state="expanded" -> 預設展開側邊欄
+st.set_page_config(page_title="SmartCanteen B&W", layout="wide", initial_sidebar_state="expanded")
 
 # 讀取 API Key
 if "GEMINI_API_KEY" in st.secrets:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 else:
-    # 僅顯示警告，不中斷程式
+    # 避免崩潰，僅顯示警告
     pass 
 
-# --- 2. CSS 黑白極簡風格 (無濾鏡、高清晰版) ---
+# --- 2. CSS 暴力修復版 (針對看不到字的元件逐一擊破) ---
 def inject_custom_css():
     st.markdown("""
     <style>
-        /* 1. 全站字體：微軟正黑體 */
+        /* ============================
+           1. 全域字體與基礎設定
+           ============================ */
         html, body, .stApp, button, input, select, textarea {
             font-family: "Microsoft JhengHei", "微軟正黑體", sans-serif !important;
         }
-
-        /* 2. 背景設定：純白 */
+        
+        /* 主畫面：白底 */
         .stApp {
             background-color: #FFFFFF !important;
+        }
+        
+        /* 標題與一般文字：全黑 */
+        h1, h2, h3, h4, h5, h6, p, label, span, div {
             color: #000000 !important;
         }
 
-        /* 3. 側邊欄：純黑底 + 白字 */
+        /* ============================
+           2. 側邊欄 (Sidebar) 
+           ============================ */
         [data-testid="stSidebar"] {
             background-color: #000000 !important;
             border-right: 1px solid #333;
         }
-        [data-testid="stSidebar"] p, [data-testid="stSidebar"] span, [data-testid="stSidebar"] div, [data-testid="stSidebar"] label {
+        /* 側邊欄內的所有文字強制變白 (覆蓋上面的全黑設定) */
+        [data-testid="stSidebar"] * {
             color: #FFFFFF !important;
         }
-        
-        /* 4. 救回選單按鈕 (關鍵修復) */
-        /* 讓 Header 背景透明，但按鈕設為黑色 */
-        header[data-testid="stHeader"] {
-            background-color: transparent !important;
-        }
-        /* 指定漢堡按鈕 (☰) 顏色為黑 */
-        button[kind="header"] {
-            color: #000000 !important;
-        }
-
-        /* 5. 輸入框：白底黑字 + 黑框 */
-        .stTextInput input, .stNumberInput input, .stSelectbox div[data-baseweb="select"] > div {
-            background-color: #FFFFFF !important;
-            color: #000000 !important;
-            -webkit-text-fill-color: #000000 !important;
-            caret-color: #000000 !important; /* 游標顏色 */
-            border: 2px solid #000000 !important; /* 純黑框 */
-            border-radius: 0px !important; /* 直角 */
-        }
-        /* 下拉選單文字 */
-        div[data-baseweb="popover"] li {
-            color: #000000 !important;
-            background-color: #FFFFFF !important;
-        }
-        
-        /* 6. 卡片式設計 (黑框白底) */
-        div[data-testid="stVerticalBlockBorderWrapper"] {
-            background-color: #FFFFFF;
-            border: 2px solid #000000;
-            border-radius: 0px;
-            padding: 20px;
-            box-shadow: 5px 5px 0px #000000; /* 黑影效果 */
-        }
-        
-        /* 7. 價格標籤 (黑底白字) */
-        .price-tag {
-            background-color: #000000; 
-            color: #FFFFFF !important;
-            padding: 6px 16px; 
-            border-radius: 50px;
-            font-weight: 800; font-size: 20px;
-            display: inline-block; margin-bottom: 12px;
-        }
-
-        /* 8. 按鈕 (純黑實心) */
-        .stButton > button {
-            background-color: #000000 !important;
-            color: #FFFFFF !important;
-            border-radius: 0px !important;
-            border: 2px solid #000000 !important;
-            font-weight: 800 !important;
-        }
-        .stButton > button:hover {
-            background-color: #333333 !important; /* Hover 變深灰 */
-            color: #FFFFFF !important;
-        }
-
-        /* 9. 標題強制黑色 */
-        h1, h2, h3 { 
-            color: #000000 !important; 
-            font-weight: 900 !important; 
-        }
-        /* 側邊欄標題例外 (白色) */
-        [data-testid="stSidebar"] h1 { color: #FFFFFF !important; }
-
-        /* 10. 確保 Alert 警示框文字可見 (移除強制覆蓋) */
-        div[data-baseweb="notification"] p {
-            color: inherit !important; /* 跟隨系統預設，通常是深色，確保可見 */
+        [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 {
+             color: #FFFFFF !important;
         }
         
         /* Logo */
@@ -119,6 +61,98 @@ def inject_custom_css():
             padding: 10px;
             text-align: center;
         }
+
+        /* ============================
+           3. 暴力修復看不到字的區域
+           ============================ */
+        
+        /* [修復 A] 警示框 (Warning, Error, Success, Info) */
+        /* 強制警示框內的文字為黑色，避免被系統預設的淺色文字蓋過去 */
+        div[data-baseweb="notification"] * {
+            color: #000000 !important;
+        }
+        .stAlert {
+            color: #000000 !important;
+        }
+
+        /* [修復 B] 輸入框 (Input) */
+        .stTextInput input, .stNumberInput input, .stSelectbox div[data-baseweb="select"] > div {
+            background-color: #FFFFFF !important;
+            color: #000000 !important;
+            -webkit-text-fill-color: #000000 !important; /* Safari/Chrome 必備 */
+            caret-color: #000000 !important; /* 游標黑色 */
+            border: 2px solid #000000 !important;
+            border-radius: 0px !important;
+        }
+
+        /* [修復 C] 下拉選單浮動視窗 (Popover) */
+        /* 這是最容易變白字的地方 */
+        div[data-baseweb="popover"] {
+            background-color: #FFFFFF !important;
+        }
+        div[data-baseweb="popover"] li, div[data-baseweb="popover"] div {
+            color: #000000 !important;
+            background-color: #FFFFFF !important;
+        }
+        
+        /* [修復 D] 展開元件 (Expander) */
+        div[data-testid="stExpander"] * {
+            color: #000000 !important;
+        }
+        
+        /* [修復 E] 表格 (Dataframe) */
+        div[data-testid="stDataFrame"] * {
+            color: #000000 !important;
+        }
+
+        /* ============================
+           4. 介面元件美化 (黑白風格)
+           ============================ */
+
+        /* 卡片 */
+        div[data-testid="stVerticalBlockBorderWrapper"] {
+            background-color: #FFFFFF;
+            border: 2px solid #000000;
+            border-radius: 0px;
+            padding: 20px;
+            box-shadow: 5px 5px 0px #000000;
+        }
+        div[data-testid="stVerticalBlockBorderWrapper"] p, 
+        div[data-testid="stVerticalBlockBorderWrapper"] h4 {
+            color: #000000 !important;
+        }
+
+        /* 價格標籤 */
+        .price-tag {
+            background-color: #000000; 
+            color: #FFFFFF !important; /* 這裡要白字 */
+            padding: 6px 16px; 
+            border-radius: 50px;
+            font-weight: 800; font-size: 20px;
+            display: inline-block; margin-bottom: 12px;
+        }
+
+        /* 按鈕 */
+        .stButton > button {
+            background-color: #000000 !important;
+            color: #FFFFFF !important;
+            border-radius: 0px !important;
+            border: 2px solid #000000 !important;
+            font-weight: 800 !important;
+        }
+        .stButton > button:hover {
+            background-color: #FFFFFF !important; 
+            color: #000000 !important;
+        }
+        
+        /* 確保漢堡選單按鈕看得到 (不隱藏 Header) */
+        header[data-testid="stHeader"] {
+            background-color: #FFFFFF !important; /* 確保 Header 背景是白的 */
+        }
+        button[kind="header"] {
+            color: #000000 !important; /* 按鈕黑色 */
+        }
+
     </style>
     """, unsafe_allow_html=True)
 
@@ -162,7 +196,7 @@ init_db()
 
 # --- 4. 側邊欄導航 ---
 st.sidebar.markdown('<div class="sidebar-logo">NX ENERGY</div>', unsafe_allow_html=True)
-st.sidebar.caption("v7.0 Stable")
+st.sidebar.caption("v8.0 Final Fix")
 st.sidebar.markdown("---")
 page = st.sidebar.radio("MENU", ["👤 員工點餐", "🤖 菜單管理 (AI)", "💰 儲值作業", "📊 每日匯總", "⚙️ 人員管理"], label_visibility="collapsed")
 
@@ -267,8 +301,8 @@ elif page == "🤖 菜單管理 (AI)":
                         try:
                             img_parts = [{"mime_type": uploaded_file.type, "data": uploaded_file.getvalue()}]
                             
-                            # [修正] 使用指定版本號 001 解決 404 問題
-                            model = genai.GenerativeModel('gemini-1.5-flash-001')
+                            # [修正] 改回最原始的模型名稱，解決 404
+                            model = genai.GenerativeModel('gemini-1.5-flash')
                             
                             response = model.generate_content(["Extract menu items to JSON list [{'dish_name':'', 'price':0}]. No markdown.", img_parts[0]])
                             
