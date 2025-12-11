@@ -13,50 +13,61 @@ st.set_page_config(page_title="SmartCanteen B&W", layout="wide", initial_sidebar
 if "GEMINI_API_KEY" in st.secrets:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 else:
-    # 避免崩潰，僅顯示警告
     pass 
 
-# --- 2. CSS 極致黑白化 (安全版 - 手動指定顏色，防止白屏) ---
+# --- 2. CSS 最終修復版 (黑白濾鏡 + 救回選單按鈕 + 強制配色) ---
 def inject_custom_css():
     st.markdown("""
     <style>
-        /* 1. 字體設定：微軟正黑體 */
+        /* 1. 全站強制灰階 (Grayscale) - 讓 Emoji 變黑白 */
+        html {
+            filter: grayscale(100%);
+        }
+
+        /* 2. 字體設定：微軟正黑體 */
         html, body, .stApp, button, input, select, textarea {
             font-family: "Microsoft JhengHei", "微軟正黑體", sans-serif !important;
         }
 
-        /* 2. 強制主畫面：白底黑字 */
+        /* 3. 強制主畫面：白底黑字 */
         .stApp {
             background-color: #FFFFFF !important;
             color: #000000 !important;
         }
-        
-        /* 3. 側邊欄：純黑底白字 */
+        /* 強制所有段落、標題為黑色 (防止深色模式反白) */
+        .main p, .main h1, .main h2, .main h3, .main label, .main div, .main span {
+            color: #000000 !important;
+        }
+
+        /* 4. 側邊欄：純黑底白字 */
         [data-testid="stSidebar"] {
             background-color: #000000 !important;
             border-right: 1px solid #333;
         }
+        /* 側邊欄內的所有文字強制變白 */
         [data-testid="stSidebar"] * {
             color: #FFFFFF !important;
         }
         
-        /* Logo */
-        .sidebar-logo {
-            font-size: 24px; font-weight: 800; margin-bottom: 20px; 
-            color: #FFFFFF !important;
-            border: 2px solid #FFFFFF;
-            padding: 10px;
-            text-align: center;
+        /* 5. 救回左上角選單按鈕 (關鍵修復) */
+        header[data-testid="stHeader"] {
+            background-color: transparent !important; /* 背景透明 */
         }
-
-        /* 4. 輸入框：白底黑字 + 黑框 */
+        /* 指定漢堡按鈕 (☰) 為黑色，確保看得到 */
+        button[kind="header"] {
+            color: #000000 !important; 
+            border: 1px solid #000000 !important; /* 加個框更明顯 */
+            background-color: #FFFFFF !important;
+        }
+        
+        /* 6. 輸入框：白底黑字 + 黑框 */
         .stTextInput input, .stNumberInput input, .stSelectbox div[data-baseweb="select"] > div {
             background-color: #FFFFFF !important;
             color: #000000 !important;
             -webkit-text-fill-color: #000000 !important;
             caret-color: #000000 !important;
             border: 2px solid #000000 !important;
-            border-radius: 0px !important; /* 直角設計 */
+            border-radius: 0px !important; /* 直角 */
         }
         /* 下拉選單選項修正 */
         div[data-baseweb="popover"] li {
@@ -69,22 +80,22 @@ def inject_custom_css():
         ul[data-testid="stSelectboxVirtualDropdown"] { background-color: #FFFFFF !important; }
         li[role="option"] { color: #000000 !important; }
 
-        /* 5. 卡片式設計 (雜誌風格) */
+        /* 7. 卡片式設計 (雜誌風格) */
         div[data-testid="stVerticalBlockBorderWrapper"] {
             background-color: #FFFFFF;
             border: 2px solid #000000;
             border-radius: 0px;
             padding: 20px;
-            box-shadow: 4px 4px 0px #000000; /* 復古黑影 */
+            box-shadow: 6px 6px 0px #000000; /* 強烈的黑影 */
         }
-        /* 修正卡片內文字顏色 */
+        /* 修正卡片內文字 */
         div[data-testid="stVerticalBlockBorderWrapper"] p, 
         div[data-testid="stVerticalBlockBorderWrapper"] h4,
         div[data-testid="stVerticalBlockBorderWrapper"] div {
             color: #000000 !important;
         }
 
-        /* 6. 價格標籤 (黑底白字) */
+        /* 8. 價格標籤 (黑底白字) */
         .price-tag {
             background-color: #000000; 
             color: #FFFFFF !important;
@@ -94,7 +105,7 @@ def inject_custom_css():
             display: inline-block; margin-bottom: 12px;
         }
 
-        /* 7. 按鈕 (純黑實心) */
+        /* 9. 按鈕 (純黑實心) */
         .stButton > button {
             background-color: #000000 !important;
             color: #FFFFFF !important;
@@ -107,20 +118,22 @@ def inject_custom_css():
             color: #000000 !important;
         }
 
-        /* 8. 指標數字 (Metric) */
+        /* 10. 指標數字 (Metric) */
         div[data-testid="stMetricValue"] {
             color: #000000 !important;
         }
         div[data-testid="stMetricLabel"] {
             color: #000000 !important;
         }
-
-        /* 隱藏 Header */
-        header {visibility: hidden;}
         
-        /* 強制標題顏色 */
-        h1, h2, h3 { color: #000000 !important; font-weight: 900 !important; }
-        [data-testid="stSidebar"] h1 { color: #FFFFFF !important; }
+        /* 側邊欄 Logo */
+        .sidebar-logo {
+            font-size: 24px; font-weight: 800; margin-bottom: 20px; 
+            color: #FFFFFF !important;
+            border: 2px solid #FFFFFF;
+            padding: 10px;
+            text-align: center;
+        }
     </style>
     """, unsafe_allow_html=True)
 
@@ -164,7 +177,7 @@ init_db()
 
 # --- 4. 側邊欄導航 ---
 st.sidebar.markdown('<div class="sidebar-logo">NX ENERGY</div>', unsafe_allow_html=True)
-st.sidebar.caption("MONOCHROME v5.0")
+st.sidebar.caption("MONOCHROME v6.0")
 st.sidebar.markdown("---")
 page = st.sidebar.radio("MENU", ["👤 員工點餐", "🤖 菜單管理 (AI)", "💰 儲值作業", "📊 每日匯總", "⚙️ 人員管理"], label_visibility="collapsed")
 
@@ -268,8 +281,9 @@ elif page == "🤖 菜單管理 (AI)":
                     with st.spinner("AI 分析中..."):
                         try:
                             img_parts = [{"mime_type": uploaded_file.type, "data": uploaded_file.getvalue()}]
-                            # 使用最新版模型解決 404
-                            model = genai.GenerativeModel('gemini-1.5-flash-latest')
+                            # 回歸使用標準模型名稱
+                            model = genai.GenerativeModel('gemini-1.5-flash')
+                            
                             response = model.generate_content(["Extract menu items to JSON list [{'dish_name':'', 'price':0}]. No markdown.", img_parts[0]])
                             
                             try:
@@ -277,7 +291,7 @@ elif page == "🤖 菜單管理 (AI)":
                                 data = json.loads(text)
                                 st.session_state['menu_df'] = pd.DataFrame(data)
                             except json.JSONDecodeError:
-                                st.error("AI 回傳格式錯誤，請重試。")
+                                st.error("AI 回傳格式錯誤，請重試或檢查圖片。")
                                 
                         except Exception as e:
                             st.error(f"AI 連線失敗: {e}")
@@ -376,7 +390,6 @@ elif page == "⚙️ 人員管理":
     with st.form("del_user"):
         to_del = st.selectbox("選擇刪除對象", users['name'].tolist() if not users.empty else [])
         if st.form_submit_button("確認刪除"):
-            # 修正了這裡的語法錯誤：加上了 () 和 as conn:
             with get_db_connection() as conn:
                 conn.execute("DELETE FROM Users WHERE name=?", (to_del,))
                 conn.commit()
