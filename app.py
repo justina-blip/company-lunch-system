@@ -352,4 +352,89 @@ elif page == "🤖 菜單管理 (AI)":
                 time.sleep(1)
                 st.rerun()
 
-# === 頁面 3: 儲
+# === 頁面 3: 儲值作業 ===
+elif page == "💰 儲值作業":
+    st.markdown("## 💰 員工儲值")
+    
+    with get_db_connection() as conn:
+        users = pd.read_sql("SELECT name, current_balance FROM Users", conn)
+    
+    # 使用 container 包裹表單，增加質感
+    with st.container(border=True):
+        st.markdown("#### 💳 新增儲值紀錄")
+        
+        with st.form("topup_form"):
+            c1, c2 = st.columns(2)
+            with c1:
+                name = st.selectbox("選擇員工", users['name'].tolist())
+            with c2:
+                amount = st.number_input("儲值金額 ($)", min_value=0, step=100, value=1000)
+            
+            if st.form_submit_button("確認儲值", type="primary"):
+                with get_db_connection() as conn:
+                    uid = conn.execute("SELECT user_id FROM Users WHERE name=?", (name,)).fetchone()[0]
+                    conn.execute("INSERT INTO Transactions (user_id, type, amount, note) VALUES (?, 'TOPUP', ?, '管理員儲值')", (uid, amount))
+                    conn.execute("UPDATE Users SET current_balance = current_balance + ? WHERE user_id = ?", (amount, uid))
+                    conn.commit()
+                st.toast(f"成功幫 {name} 儲值 ${amount}", icon="💰")
+                time.sleep(1)
+                st.rerun()
+
+# === 頁面 4: 每日匯總 ===
+elif page == "📊 每日匯總":
+    st.markdown("## 📊 營運儀表板")
+    today = datetime.date.today().strftime("%Y-%m-%d")
+    
+    with get_db_connection() as conn:
+        total_bal = conn.execute("SELECT SUM(current_balance) FROM Users").fetchone()[0] or 0
+        today_income = conn.execute("SELECT SUM(amount) FROM Transactions WHERE type='TOPUP' AND date(timestamp)=?", (today,)).fetchone()[0] or 0
+        today_sales = abs(conn.execute("SELECT SUM(amount) FROM Transactions WHERE type='ORDER' AND date(timestamp)=?", (today,)).fetchone()[0] or 0)
+        
+        m1, m2, m3 = st.columns(3)
+        m1.metric("總發行儲值金", f"${total_bal}")
+        m2.metric("今日營收 (訂單)", f"${today_sales}")
+        m3.metric("今日儲值金", f"${today_income}")
+        
+        st.markdown("### 📋 今日交易明細")
+        df = pd.read_sql("""SELECT time(timestamp) as 時間, u.name as 員工, type as 類型, dish_name||coalesce(' ('||note||')','') as 說明, amount as 金額 
+                            FROM Transactions t JOIN Users u ON t.user_id=u.user_id WHERE date(timestamp)=? ORDER BY timestamp DESC""", conn, params=(today,))
+        
+        st.dataframe(df, use_container_width=True)
+
+# === 頁面 5: 人員管理 ===
+elif page == "⚙️ 人員管理":
+    st.markdown("## ⚙️ 人員管理")
+    
+    with st.expander("➕ 新增員工", expanded=True):
+        with st.form("add_user"):
+            c1, c2 = st.columns(2)
+            new_name = c1.text_input("姓名")
+            init_bal = c2.number_input("初始餘額", value=0)
+            if st.form_submit_button("新增"):
+                try:
+                    with get_db_connection() as conn:
+                        cur = conn.cursor()
+                        cur.execute("INSERT INTO Users (name, current_balance) VALUES (?, ?)", (new_name, init_bal))
+                        uid = cur.lastrowid
+                        cur.execute("INSERT INTO Transactions (user_id, type, amount, note) VALUES (?, 'INIT', ?, '開戶')", (uid, init_bal))
+                        conn.commit()
+                    st.toast(f"員工 {new_name} 新增成功！", icon="✅")
+                    time.sleep(1)
+                    st.rerun()
+                except:
+                    st.error("姓名重複或錯誤")
+    
+    with get_db_connection() as conn:
+        users = pd.read_sql("SELECT * FROM Users", conn)
+    st.dataframe(users, use_container_width=True)
+    
+    st.markdown("#### 🗑️ 刪除員工")
+    with st.form("delete_user"):
+        to_del = st.selectbox("選擇刪除對象", users['name'].tolist() if not users.empty else [])
+        if st.form_submit_button("確認刪除"):
+            with get_db_connection() as conn:
+                conn.execute("DELETE FROM Users WHERE name=?", (to_del,))
+                conn.commit()
+            st.toast(f"已刪除 {to_del}", icon="🗑️")
+            time.sleep(1)
+            st.rerun()
