@@ -5,6 +5,7 @@ import pandas as pd
 import datetime
 import time
 import json
+import sys
 
 # --- 1. 設定與 API Key ---
 st.set_page_config(page_title="SmartCanteen Final", layout="wide", initial_sidebar_state="expanded")
@@ -15,90 +16,73 @@ if "GEMINI_API_KEY" in st.secrets:
 else:
     pass 
 
-# --- 2. CSS 全白線框風格 (White Wireframe & High Contrast) ---
+# --- 2. CSS 全白線框風格 (White Wireframe) ---
 def inject_custom_css():
     st.markdown("""
     <style>
-        /* ============================
-           1. 全域設定
-           ============================ */
+        /* 全域字體 */
         html, body, .stApp, button, input, select, textarea {
             font-family: "Microsoft JhengHei", "微軟正黑體", sans-serif !important;
         }
         
-        /* 全站背景：純白 */
+        /* 全站背景純白 */
         .stApp {
             background-color: #FFFFFF !important;
         }
         
-        /* 全站文字：純黑 (除了被特別指定的按鈕文字外) */
+        /* 全站文字強制全黑 */
         h1, h2, h3, h4, h5, h6, p, label, span, div, li, small, strong, td, th {
             color: #000000 !important;
         }
 
-        /* ============================
-           2. 按鈕專區 (白底、黑字、黑框)
-           ============================ */
-        
-        /* 鎖定所有按鈕 */
+        /* 按鈕專區 (白底黑字黑框) */
         button, 
         [data-testid="baseButton-secondary"],
         [data-testid="baseButton-primary"],
         [data-testid="stFormSubmitButton"] button,
         [data-testid="stFileUploader"] button {
-            background-color: #FFFFFF !important; /* 白底 */
-            color: #000000 !important; /* 黑字 (確保看得到) */
-            border: 2px solid #000000 !important; /* 黑框 */
-            border-radius: 0px !important; /* 直角 */
+            background-color: #FFFFFF !important;
+            color: #000000 !important;
+            border: 2px solid #000000 !important;
+            border-radius: 0px !important;
             font-weight: 800 !important;
             box-shadow: none !important;
         }
 
-        /* 按鈕 Hover 效果 (反轉：黑底白字) */
+        /* 按鈕 Hover (變黑底白字) */
         button:hover,
         [data-testid="baseButton-secondary"]:hover,
         [data-testid="baseButton-primary"]:hover,
         [data-testid="stFormSubmitButton"] button:hover,
         [data-testid="stFileUploader"] button:hover {
             background-color: #000000 !important;
-            color: #FFFFFF !important; /* 變白字 */
+            color: #FFFFFF !important;
             border: 2px solid #000000 !important;
         }
-        
-        /* 特別修復：上傳按鈕內的文字 span 在 hover 時也要變色 */
         [data-testid="stFileUploader"] button:hover span {
             color: #FFFFFF !important;
         }
 
-        /* ============================
-           3. 上傳視窗專區 (File Uploader)
-           ============================ */
-        
-        /* 拖放區域：白底、黑虛線 */
+        /* 上傳視窗 (拖放區白底黑字) */
         [data-testid="stFileUploader"] section {
             background-color: #FFFFFF !important;
             border: 2px dashed #000000 !important;
         }
-        /* 說明文字：黑色 */
         [data-testid="stFileUploader"] section span, 
         [data-testid="stFileUploader"] section small {
             color: #000000 !important;
         }
-        /* 上傳按鈕已經在上面第2點被處理了 (白底黑字) */
 
-        /* ============================
-           4. 側邊欄 (Sidebar) 
-           ============================ */
+        /* 側邊欄 (白底黑字右黑線) */
         [data-testid="stSidebar"] {
             background-color: #FFFFFF !important;
             border-right: 2px solid #000000;
         }
-        /* 側邊欄文字全黑 */
         [data-testid="stSidebar"] * {
             color: #000000 !important;
         }
         
-        /* Logo (黑字黑框) */
+        /* Logo (黑框黑字) */
         .sidebar-logo {
             font-size: 24px; font-weight: 800; margin-bottom: 20px; 
             color: #000000 !important;
@@ -107,11 +91,7 @@ def inject_custom_css():
             text-align: center;
         }
 
-        /* ============================
-           5. 其他元件 (輸入框、表格、警示)
-           ============================ */
-        
-        /* 輸入框 */
+        /* 輸入框 (白底黑字黑框) */
         .stTextInput input, .stNumberInput input, .stSelectbox div[data-baseweb="select"] > div {
             background-color: #FFFFFF !important;
             color: #000000 !important;
@@ -120,18 +100,15 @@ def inject_custom_css():
             border: 2px solid #000000 !important;
             border-radius: 0px !important;
         }
-
-        /* 下拉選單浮動視窗 */
+        
+        /* 下拉選單與表格修復 */
         div[data-baseweb="popover"] li, div[data-baseweb="popover"] div {
             background-color: #FFFFFF !important;
             color: #000000 !important;
         }
-        
-        /* 警示框文字 */
-        div[data-baseweb="notification"] * {
-            color: #000000 !important;
-        }
-        
+        div[data-baseweb="notification"] * { color: #000000 !important; }
+        div[data-testid="stDataFrame"] * { color: #000000 !important; }
+
         /* 價格標籤 */
         .price-tag {
             background-color: #FFFFFF; 
@@ -142,8 +119,9 @@ def inject_custom_css():
             font-weight: 800; font-size: 20px;
             display: inline-block; margin-bottom: 12px;
         }
+        .price-tag span { color: #000000 !important; }
 
-        /* 卡片 */
+        /* 卡片設計 */
         div[data-testid="stVerticalBlockBorderWrapper"] {
             background-color: #FFFFFF;
             border: 2px solid #000000;
@@ -152,13 +130,9 @@ def inject_custom_css():
             box-shadow: 4px 4px 0px #000000;
         }
         
-        /* 確保 Header 不隱藏，按鈕為黑 */
-        header[data-testid="stHeader"] {
-            background-color: #FFFFFF !important;
-        }
-        button[kind="header"] {
-            color: #000000 !important;
-        }
+        /* 確保選單按鈕不隱藏 */
+        header[data-testid="stHeader"] { background-color: #FFFFFF !important; }
+        button[kind="header"] { color: #000000 !important; }
 
     </style>
     """, unsafe_allow_html=True)
@@ -203,7 +177,15 @@ init_db()
 
 # --- 4. 側邊欄導航 ---
 st.sidebar.markdown('<div class="sidebar-logo">NX ENERGY</div>', unsafe_allow_html=True)
-st.sidebar.caption("v13.0 White")
+st.sidebar.caption("v14.0 Auto-Fix")
+
+# [新功能] 顯示驅動版本，方便除錯
+try:
+    lib_ver = google.generativeai.__version__
+    st.sidebar.caption(f"Driver: {lib_ver}")
+except:
+    st.sidebar.caption("Driver: Unknown")
+
 st.sidebar.markdown("---")
 page = st.sidebar.radio("MENU", ["👤 員工點餐", "🤖 菜單管理 (AI)", "💰 儲值作業", "📊 每日匯總", "⚙️ 人員管理"], label_visibility="collapsed")
 
@@ -305,9 +287,24 @@ elif page == "🤖 菜單管理 (AI)":
                         try:
                             img_parts = [{"mime_type": uploaded_file.type, "data": uploaded_file.getvalue()}]
                             
-                            # [修正] 配合 requirements.txt 0.8.3，使用 flash 模型
-                            model = genai.GenerativeModel('gemini-1.5-flash')
-                            
+                            # [智能模型選擇器] 
+                            # 自動嘗試可用的模型，避免 404
+                            active_model_name = "gemini-1.5-flash" # 預設
+                            try:
+                                # 嘗試列出可用模型
+                                available_models = [m.name for m in genai.list_models()]
+                                # 優先順序: flash -> pro -> flash-001
+                                if "models/gemini-1.5-flash" in available_models:
+                                    active_model_name = "gemini-1.5-flash"
+                                elif "models/gemini-1.5-pro" in available_models:
+                                    active_model_name = "gemini-1.5-pro"
+                                elif "models/gemini-pro-vision" in available_models:
+                                    active_model_name = "gemini-pro-vision"
+                            except:
+                                # 如果無法列出，就使用預設值盲測
+                                pass
+                                
+                            model = genai.GenerativeModel(active_model_name)
                             response = model.generate_content(["Extract menu items to JSON list [{'dish_name':'', 'price':0}]. No markdown.", img_parts[0]])
                             
                             try:
@@ -315,10 +312,11 @@ elif page == "🤖 菜單管理 (AI)":
                                 data = json.loads(text)
                                 st.session_state['menu_df'] = pd.DataFrame(data)
                             except json.JSONDecodeError:
-                                st.error("AI 回傳格式錯誤，請重試或檢查圖片。")
+                                st.error("AI 回傳格式錯誤，請重試。")
                                 
                         except Exception as e:
-                            st.error(f"AI 連線失敗: {e}")
+                            st.error(f"AI 連線失敗 ({active_model_name}): {e}")
+                            st.caption("建議操作：請嘗試刪除 App 並重新部署 (Re-deploy) 以更新驅動程式。")
 
         if st.session_state['menu_df'] is not None:
             st.success("辨識成功")
