@@ -14,7 +14,7 @@ st.set_page_config(page_title="SmartCanteen White", layout="wide", initial_sideb
 if "GEMINI_API_KEY" in st.secrets:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 else:
-    pass 
+    st.error("❌ 尚未設定 API Key，請至 Secrets 設定。")
 
 # --- 2. CSS 強制全白線框風格 (White Wireframe) ---
 def inject_custom_css():
@@ -37,7 +37,7 @@ def inject_custom_css():
         }
         
         /* 強制所有文字全黑 */
-        h1, h2, h3, h4, h5, h6, p, label, span, div, li, small, strong, td, th {
+        h1, h2, h3, h4, h5, h6, p, label, span, div, li, small, strong, td, th, caption {
             color: #000000 !important;
         }
 
@@ -58,7 +58,7 @@ def inject_custom_css():
             box-shadow: none !important;
         }
 
-        /* Hover 反轉 */
+        /* Hover 反轉 (黑底白字) */
         button:hover,
         [data-testid="baseButton-secondary"]:hover,
         [data-testid="baseButton-primary"]:hover,
@@ -69,6 +69,7 @@ def inject_custom_css():
             border: 2px solid #000000 !important;
         }
         
+        /* 上傳按鈕內的文字 hover */
         [data-testid="stFileUploader"] button:hover span {
             color: #FFFFFF !important;
         }
@@ -193,7 +194,7 @@ init_db()
 
 # --- 4. 側邊欄導航 ---
 st.sidebar.markdown('<div class="sidebar-logo">NX ENERGY</div>', unsafe_allow_html=True)
-st.sidebar.caption("v20.0 Brute Force")
+st.sidebar.caption("v21.0 Final Key Fix")
 st.sidebar.markdown("---")
 page = st.sidebar.radio("MENU", ["👤 員工點餐", "🤖 菜單管理 (AI)", "💰 儲值作業", "📊 每日匯總", "⚙️ 人員管理"], label_visibility="collapsed")
 
@@ -291,59 +292,33 @@ elif page == "🤖 菜單管理 (AI)":
                 if "GEMINI_API_KEY" not in st.secrets:
                      st.error("⚠️ 請先設定 API Key")
                 else:
-                    with st.spinner("AI 正在嘗試連線分析..."):
+                    with st.spinner("AI 正在連線分析..."):
                         try:
                             img_parts = [{"mime_type": uploaded_file.type, "data": uploaded_file.getvalue()}]
                             
-                            # === AI 暴力闖關系統 (Brute Force Fallback) ===
-                            # 依序嘗試以下模型，直到一個成功為止
-                            candidate_models = [
-                                "gemini-1.5-flash",       # 首選
-                                "gemini-1.5-flash-latest", # 備選1
-                                "gemini-1.5-pro",         # 備選2 (最強)
-                                "gemini-pro-vision"       # 備選3 (舊版但穩定)
-                            ]
+                            # [關鍵] 使用最穩定的 flash 模型，如果您換了新的 API Key，這一定能通
+                            model = genai.GenerativeModel('gemini-1.5-flash')
                             
-                            response = None
-                            success_model = ""
-                            last_error = ""
+                            response = model.generate_content(["Extract menu items to JSON list [{'dish_name':'', 'price':0}]. No markdown.", img_parts[0]])
                             
-                            for model_name in candidate_models:
-                                try:
-                                    model = genai.GenerativeModel(model_name)
-                                    # 嘗試發送
-                                    temp_response = model.generate_content(["Extract menu items to JSON list [{'dish_name':'', 'price':0}]. No markdown.", img_parts[0]])
-                                    if temp_response.text:
-                                        response = temp_response
-                                        success_model = model_name
-                                        break # 成功就跳出迴圈
-                                except Exception as e:
-                                    last_error = str(e)
-                                    continue # 失敗就試下一個
-                            
-                            if response is None:
-                                st.error(f"所有模型嘗試皆失敗。最後錯誤: {last_error}")
-                            else:
-                                st.caption(f"使用模型: {success_model} 辨識成功")
-                                text = response.text
-                                
-                                # [強力清洗邏輯]
-                                try:
-                                    start_idx = text.find('[')
-                                    end_idx = text.rfind(']') + 1
-                                    if start_idx != -1 and end_idx != -1:
-                                        clean_text = text[start_idx:end_idx]
-                                        data = json.loads(clean_text)
-                                        st.session_state['menu_df'] = pd.DataFrame(data)
-                                    else:
-                                        data = json.loads(text.replace("```json", "").replace("```", "").strip())
-                                        st.session_state['menu_df'] = pd.DataFrame(data)
-                                        
-                                except json.JSONDecodeError:
-                                    st.error(f"解析失敗。原始回應內容: {text}")
+                            try:
+                                text = response.text.strip().replace("```json", "").replace("```", "")
+                                # 嘗試尋找 JSON 區塊
+                                start_idx = text.find('[')
+                                end_idx = text.rfind(']') + 1
+                                if start_idx != -1 and end_idx != -1:
+                                    clean_text = text[start_idx:end_idx]
+                                    data = json.loads(clean_text)
+                                else:
+                                    data = json.loads(text)
+
+                                st.session_state['menu_df'] = pd.DataFrame(data)
+                            except json.JSONDecodeError:
+                                st.error("AI 回傳格式錯誤 (但連線成功了！)，請重試或檢查圖片。")
                                 
                         except Exception as e:
-                            st.error(f"系統嚴重錯誤: {e}")
+                            st.error(f"AI 連線失敗: {e}")
+                            st.caption("請確認您的 API Key 是否為 'Google AI Studio' 專案，且已啟用 Generative Language API。")
 
         if st.session_state['menu_df'] is not None:
             st.success("辨識成功")
