@@ -5,7 +5,7 @@ import pandas as pd
 import datetime
 import time
 import json
-import re # 新增：用於強力清洗資料
+import re
 
 # --- 1. 設定與 API Key ---
 st.set_page_config(page_title="SmartCanteen White", layout="wide", initial_sidebar_state="expanded")
@@ -193,7 +193,7 @@ init_db()
 
 # --- 4. 側邊欄導航 ---
 st.sidebar.markdown('<div class="sidebar-logo">NX ENERGY</div>', unsafe_allow_html=True)
-st.sidebar.caption("v19.0 Smart Parser")
+st.sidebar.caption("v20.0 Brute Force")
 st.sidebar.markdown("---")
 page = st.sidebar.radio("MENU", ["👤 員工點餐", "🤖 菜單管理 (AI)", "💰 儲值作業", "📊 每日匯總", "⚙️ 人員管理"], label_visibility="collapsed")
 
@@ -291,46 +291,59 @@ elif page == "🤖 菜單管理 (AI)":
                 if "GEMINI_API_KEY" not in st.secrets:
                      st.error("⚠️ 請先設定 API Key")
                 else:
-                    with st.spinner("AI 分析中..."):
+                    with st.spinner("AI 正在嘗試連線分析..."):
                         try:
                             img_parts = [{"mime_type": uploaded_file.type, "data": uploaded_file.getvalue()}]
                             
-                            # [智能模型選擇]
-                            active_model_name = "gemini-1.5-flash" 
-                            try:
-                                available_models = [m.name for m in genai.list_models()]
-                                if "models/gemini-1.5-flash" in available_models:
-                                    active_model_name = "gemini-1.5-flash"
-                            except:
-                                pass
+                            # === AI 暴力闖關系統 (Brute Force Fallback) ===
+                            # 依序嘗試以下模型，直到一個成功為止
+                            candidate_models = [
+                                "gemini-1.5-flash",       # 首選
+                                "gemini-1.5-flash-latest", # 備選1
+                                "gemini-1.5-pro",         # 備選2 (最強)
+                                "gemini-pro-vision"       # 備選3 (舊版但穩定)
+                            ]
+                            
+                            response = None
+                            success_model = ""
+                            last_error = ""
+                            
+                            for model_name in candidate_models:
+                                try:
+                                    model = genai.GenerativeModel(model_name)
+                                    # 嘗試發送
+                                    temp_response = model.generate_content(["Extract menu items to JSON list [{'dish_name':'', 'price':0}]. No markdown.", img_parts[0]])
+                                    if temp_response.text:
+                                        response = temp_response
+                                        success_model = model_name
+                                        break # 成功就跳出迴圈
+                                except Exception as e:
+                                    last_error = str(e)
+                                    continue # 失敗就試下一個
+                            
+                            if response is None:
+                                st.error(f"所有模型嘗試皆失敗。最後錯誤: {last_error}")
+                            else:
+                                st.caption(f"使用模型: {success_model} 辨識成功")
+                                text = response.text
                                 
-                            model = genai.GenerativeModel(active_model_name)
-                            
-                            # 加強 Prompt
-                            prompt = "Identify dish names and prices from the menu image. Output ONLY a raw JSON list of objects with keys 'dish_name' (string) and 'price' (integer). Do not use markdown code blocks."
-                            
-                            response = model.generate_content([prompt, img_parts[0]])
-                            text = response.text
-                            
-                            # [強力清洗邏輯] 尋找 JSON Array 的開頭與結尾
-                            try:
-                                start_idx = text.find('[')
-                                end_idx = text.rfind(']') + 1
-                                if start_idx != -1 and end_idx != -1:
-                                    clean_text = text[start_idx:end_idx]
-                                    data = json.loads(clean_text)
-                                    st.session_state['menu_df'] = pd.DataFrame(data)
-                                else:
-                                    # 如果找不到 []，嘗試用正則表達式抓取類似 JSON 的結構
-                                    st.warning("AI 回傳格式不標準，嘗試強制解析...")
-                                    data = json.loads(text.replace("```json", "").replace("```", "").strip())
-                                    st.session_state['menu_df'] = pd.DataFrame(data)
-                                    
-                            except json.JSONDecodeError:
-                                st.error(f"解析失敗。原始回應內容: {text}")
+                                # [強力清洗邏輯]
+                                try:
+                                    start_idx = text.find('[')
+                                    end_idx = text.rfind(']') + 1
+                                    if start_idx != -1 and end_idx != -1:
+                                        clean_text = text[start_idx:end_idx]
+                                        data = json.loads(clean_text)
+                                        st.session_state['menu_df'] = pd.DataFrame(data)
+                                    else:
+                                        data = json.loads(text.replace("```json", "").replace("```", "").strip())
+                                        st.session_state['menu_df'] = pd.DataFrame(data)
+                                        
+                                except json.JSONDecodeError:
+                                    st.error(f"解析失敗。原始回應內容: {text}")
                                 
                         except Exception as e:
-                            st.error(f"AI 連線失敗: {e}")
+                            st.error(f"系統嚴重錯誤: {e}")
 
         if st.session_state['menu_df'] is not None:
             st.success("辨識成功")
