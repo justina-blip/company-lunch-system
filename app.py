@@ -14,7 +14,8 @@ st.set_page_config(page_title="SmartCanteen White", layout="wide", initial_sideb
 if "GEMINI_API_KEY" in st.secrets:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 else:
-    st.error("❌ 尚未設定 API Key，請至 Secrets 設定。")
+    # 不顯示錯誤，以免干擾介面，等操作時再提示
+    pass 
 
 # --- 2. CSS 強制全白線框風格 (White Wireframe) ---
 def inject_custom_css():
@@ -124,9 +125,14 @@ def inject_custom_css():
             color: #000000 !important;
         }
 
+        /* 表格設定 */
         div[data-testid="stDataFrame"] { background-color: #FFFFFF !important; }
-        div[data-testid="stDataFrame"] div, div[data-testid="stDataFrame"] span {
+        div[data-testid="stDataFrame"] div, 
+        div[data-testid="stDataFrame"] span,
+        div[data-testid="stDataFrame"] th,
+        div[data-testid="stDataFrame"] td {
             color: #000000 !important;
+            background-color: #FFFFFF !important;
         }
 
         .price-tag {
@@ -194,7 +200,7 @@ init_db()
 
 # --- 4. 側邊欄導航 ---
 st.sidebar.markdown('<div class="sidebar-logo">NX ENERGY</div>', unsafe_allow_html=True)
-st.sidebar.caption("v21.0 Final Key Fix")
+st.sidebar.caption("v22.0 Final")
 st.sidebar.markdown("---")
 page = st.sidebar.radio("MENU", ["👤 員工點餐", "🤖 菜單管理 (AI)", "💰 儲值作業", "📊 每日匯總", "⚙️ 人員管理"], label_visibility="collapsed")
 
@@ -290,31 +296,33 @@ elif page == "🤖 菜單管理 (AI)":
         if st.session_state['menu_df'] is None:
             if st.button("開始 AI 辨識"):
                 if "GEMINI_API_KEY" not in st.secrets:
-                     st.error("⚠️ 請先設定 API Key")
+                     st.error("⚠️ 請先設定 API Key (請至 Google AI Studio 申請)")
                 else:
                     with st.spinner("AI 正在連線分析..."):
                         try:
                             img_parts = [{"mime_type": uploaded_file.type, "data": uploaded_file.getvalue()}]
                             
-                            # [關鍵] 使用最穩定的 flash 模型，如果您換了新的 API Key，這一定能通
+                            # [關鍵] 使用最穩定的 flash 模型
                             model = genai.GenerativeModel('gemini-1.5-flash')
                             
-                            response = model.generate_content(["Extract menu items to JSON list [{'dish_name':'', 'price':0}]. No markdown.", img_parts[0]])
+                            response = model.generate_content(["Extract menu items to JSON list [{'dish_name':'', 'price':0}]. No markdown. Only JSON.", img_parts[0]])
+                            text = response.text
                             
+                            # [強力清洗邏輯 V2]
                             try:
-                                text = response.text.strip().replace("```json", "").replace("```", "")
-                                # 嘗試尋找 JSON 區塊
-                                start_idx = text.find('[')
-                                end_idx = text.rfind(']') + 1
-                                if start_idx != -1 and end_idx != -1:
-                                    clean_text = text[start_idx:end_idx]
+                                # 嘗試尋找 JSON Array 的開頭與結尾
+                                match = re.search(r'\[.*\]', text, re.DOTALL)
+                                if match:
+                                    clean_text = match.group(0)
                                     data = json.loads(clean_text)
+                                    st.session_state['menu_df'] = pd.DataFrame(data)
                                 else:
-                                    data = json.loads(text)
-
-                                st.session_state['menu_df'] = pd.DataFrame(data)
+                                    # 備援：移除 markdown 語法
+                                    data = json.loads(text.replace("```json", "").replace("```", "").strip())
+                                    st.session_state['menu_df'] = pd.DataFrame(data)
                             except json.JSONDecodeError:
-                                st.error("AI 回傳格式錯誤 (但連線成功了！)，請重試或檢查圖片。")
+                                st.error("AI 回傳了資料，但格式無法解析。請重試一張較清晰的照片。")
+                                st.expander("查看原始回應").write(text)
                                 
                         except Exception as e:
                             st.error(f"AI 連線失敗: {e}")
