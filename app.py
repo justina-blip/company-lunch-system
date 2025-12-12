@@ -13,14 +13,13 @@ st.set_page_config(page_title="SmartCanteen White", layout="wide", initial_sideb
 if "GEMINI_API_KEY" in st.secrets:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 else:
-    # 這裡不顯示錯誤，避免畫面亂掉
     pass 
 
-# --- 2. CSS 強制全白線框風格 (Force Light Mode) ---
+# --- 2. CSS 強制全白線框風格 (White Wireframe) ---
 def inject_custom_css():
     st.markdown("""
     <style>
-        /* [核心設定] 強制覆蓋系統深色模式，改為淺色變數 */
+        /* 強制覆蓋系統變數，確保不被深色模式影響 */
         :root {
             --primary-color: #000000;
             --background-color: #FFFFFF;
@@ -29,7 +28,7 @@ def inject_custom_css():
             --font: "Microsoft JhengHei", sans-serif;
         }
 
-        /* 1. 全域基礎設定 */
+        /* 1. 全域設定 */
         html, body, .stApp {
             background-color: #FFFFFF !important;
             color: #000000 !important;
@@ -37,7 +36,7 @@ def inject_custom_css():
         }
         
         /* 強制所有文字全黑 */
-        h1, h2, h3, h4, h5, h6, p, label, span, div, li, small, strong, td, th, caption {
+        h1, h2, h3, h4, h5, h6, p, label, span, div, li, small, strong, td, th {
             color: #000000 !important;
         }
 
@@ -45,46 +44,43 @@ def inject_custom_css():
            2. 按鈕專區 (白底、黑字、黑框)
            ============================ */
         
-        /* 鎖定所有按鈕 */
+        /* 鎖定所有類型的按鈕 */
         button, 
         [data-testid="baseButton-secondary"],
         [data-testid="baseButton-primary"],
         [data-testid="stFormSubmitButton"] button,
         [data-testid="stFileUploader"] button {
-            background-color: #FFFFFF !important; /* 白底 */
-            color: #000000 !important; /* 黑字 */
+            background-color: #FFFFFF !important; /* 平常白底 */
+            color: #000000 !important; /* 平常黑字 */
             border: 2px solid #000000 !important; /* 黑框 */
             border-radius: 0px !important; /* 直角 */
             font-weight: 800 !important;
             box-shadow: none !important;
         }
 
-        /* 按鈕滑鼠懸停 (Hover) -> 反轉為黑底白字 */
+        /* 按鈕 Hover (反轉：黑底白字) */
         button:hover,
         [data-testid="baseButton-secondary"]:hover,
         [data-testid="baseButton-primary"]:hover,
         [data-testid="stFormSubmitButton"] button:hover,
         [data-testid="stFileUploader"] button:hover {
-            background-color: #000000 !important;
+            background-color: #000000 !important; /* 變黑底 */
             color: #FFFFFF !important; /* 變白字 */
             border: 2px solid #000000 !important;
         }
         
-        /* 修正上傳按鈕內的文字 hover */
+        /* 上傳按鈕內的文字 hover */
         [data-testid="stFileUploader"] button:hover span {
             color: #FFFFFF !important;
         }
 
         /* ============================
-           3. 上傳視窗專區 (File Uploader)
+           3. 上傳視窗專區
            ============================ */
-        
-        /* 拖放區域背景：純白 */
         [data-testid="stFileUploader"] section {
             background-color: #FFFFFF !important;
             border: 2px dashed #000000 !important;
         }
-        /* 提示文字：純黑 */
         [data-testid="stFileUploader"] section span, 
         [data-testid="stFileUploader"] section small,
         [data-testid="stFileUploader"] section div {
@@ -112,9 +108,8 @@ def inject_custom_css():
         }
 
         /* ============================
-           5. 其他元件 (表格、輸入框)
+           5. 其他元件
            ============================ */
-        
         /* 輸入框：白底黑字黑框 */
         .stTextInput input, .stNumberInput input, .stSelectbox div[data-baseweb="select"] > div {
             background-color: #FFFFFF !important;
@@ -132,22 +127,9 @@ def inject_custom_css():
         }
 
         /* 表格 (DataFrame) 強制白底黑字 */
-        div[data-testid="stDataFrame"] {
-            background-color: #FFFFFF !important;
-        }
-        div[data-testid="stDataFrame"] div, 
-        div[data-testid="stDataFrame"] span, 
-        div[data-testid="stDataFrame"] th, 
-        div[data-testid="stDataFrame"] td {
+        div[data-testid="stDataFrame"] { background-color: #FFFFFF !important; }
+        div[data-testid="stDataFrame"] div, div[data-testid="stDataFrame"] span {
             color: #000000 !important;
-            background-color: #FFFFFF !important;
-            border-color: #000000 !important;
-        }
-        /* 表頭特別處理 */
-        th {
-            background-color: #F0F0F0 !important;
-            color: #000000 !important;
-            border-bottom: 2px solid #000000 !important;
         }
 
         /* 價格標籤 */
@@ -171,13 +153,9 @@ def inject_custom_css():
             box-shadow: 4px 4px 0px #000000;
         }
         
-        /* Header */
-        header[data-testid="stHeader"] {
-            background-color: #FFFFFF !important;
-        }
-        button[kind="header"] {
-            color: #000000 !important;
-        }
+        /* Header 不隱藏 */
+        header[data-testid="stHeader"] { background-color: #FFFFFF !important; }
+        button[kind="header"] { color: #000000 !important; }
 
     </style>
     """, unsafe_allow_html=True)
@@ -222,7 +200,7 @@ init_db()
 
 # --- 4. 側邊欄導航 ---
 st.sidebar.markdown('<div class="sidebar-logo">NX ENERGY</div>', unsafe_allow_html=True)
-st.sidebar.caption("v16.0 White Mode")
+st.sidebar.caption("v17.0 Auto-Pilot")
 st.sidebar.markdown("---")
 page = st.sidebar.radio("MENU", ["👤 員工點餐", "🤖 菜單管理 (AI)", "💰 儲值作業", "📊 每日匯總", "⚙️ 人員管理"], label_visibility="collapsed")
 
@@ -324,9 +302,34 @@ elif page == "🤖 菜單管理 (AI)":
                         try:
                             img_parts = [{"mime_type": uploaded_file.type, "data": uploaded_file.getvalue()}]
                             
-                            # [版本確認] 0.8.5 支援 flash，這是最快的
-                            model = genai.GenerativeModel('gemini-1.5-flash')
+                            # === AI 自動導航系統 (Auto-Pilot) ===
+                            # 1. 先列出所有可用模型
+                            try:
+                                available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+                            except:
+                                available_models = []
                             
+                            # 2. 挑選最佳模型 (Flash -> Pro -> Vision)
+                            target_model = "models/gemini-1.5-flash" # 預設首選
+                            
+                            # 如果預設的 flash 不在清單中，開始尋找替代品
+                            if target_model not in available_models and available_models:
+                                # 優先找 flash 系列
+                                for m in available_models:
+                                    if "flash" in m:
+                                        target_model = m
+                                        break
+                                else:
+                                    # 找不到 flash，找 pro
+                                    for m in available_models:
+                                        if "pro" in m:
+                                            target_model = m
+                                            break
+                            
+                            # 3. 建立模型連線
+                            model = genai.GenerativeModel(target_model)
+                            
+                            # 4. 發送請求
                             response = model.generate_content(["Extract menu items to JSON list [{'dish_name':'', 'price':0}]. No markdown.", img_parts[0]])
                             
                             try:
@@ -334,10 +337,11 @@ elif page == "🤖 菜單管理 (AI)":
                                 data = json.loads(text)
                                 st.session_state['menu_df'] = pd.DataFrame(data)
                             except json.JSONDecodeError:
-                                st.error("AI 回傳格式錯誤，請重試或檢查圖片。")
+                                st.error("AI 回傳格式錯誤，請重試。")
                                 
                         except Exception as e:
                             st.error(f"AI 連線失敗: {e}")
+                            st.caption("請嘗試點擊右上角選單 -> Reboot App")
 
         if st.session_state['menu_df'] is not None:
             st.success("辨識成功")
@@ -345,100 +349,4 @@ elif page == "🤖 菜單管理 (AI)":
             
             if st.button("🚀 發布今日菜單"):
                 today = datetime.date.today().strftime("%Y-%m-%d")
-                with get_db_connection() as conn:
-                    conn.execute("DELETE FROM Menu WHERE date = ?", (today,))
-                    for _, row in edited_df.iterrows():
-                        conn.execute("INSERT INTO Menu (date, dish_name, price) VALUES (?, ?, ?)", (today, row['dish_name'], row['price']))
-                    conn.commit()
-                st.success("菜單已發布！")
-                st.session_state['menu_df'] = None
-                time.sleep(1)
-                st.rerun()
-
-# === 頁面 3: 儲值作業 ===
-elif page == "💰 儲值作業":
-    st.header("員工儲值")
-    
-    with get_db_connection() as conn:
-        users = pd.read_sql("SELECT name FROM Users", conn)
-    
-    if users.empty:
-        st.warning("無員工資料")
-    else:
-        with st.container(border=True):
-            st.markdown("#### 新增儲值")
-            with st.form("topup_form"):
-                c1, c2 = st.columns(2)
-                name = c1.selectbox("員工", users['name'].tolist())
-                amount = c2.number_input("金額", step=100, value=1000)
-                
-                if st.form_submit_button("確認儲值"):
-                    with get_db_connection() as conn:
-                        uid = conn.execute("SELECT user_id FROM Users WHERE name=?", (name,)).fetchone()[0]
-                        conn.execute("INSERT INTO Transactions (user_id, type, amount, note) VALUES (?, 'TOPUP', ?, '管理員儲值')", (uid, amount))
-                        conn.execute("UPDATE Users SET current_balance = current_balance + ? WHERE user_id = ?", (amount, uid))
-                        conn.commit()
-                    st.success(f"已儲值 ${amount}")
-                    time.sleep(1)
-                    st.rerun()
-
-# === 頁面 4: 每日匯總 ===
-elif page == "📊 每日匯總":
-    st.header("營運儀表板")
-    today = datetime.date.today().strftime("%Y-%m-%d")
-    
-    with get_db_connection() as conn:
-        total_bal = conn.execute("SELECT SUM(current_balance) FROM Users").fetchone()[0] or 0
-        today_income = conn.execute("SELECT SUM(amount) FROM Transactions WHERE type='TOPUP' AND date(timestamp)=?", (today,)).fetchone()[0] or 0
-        today_sales = abs(conn.execute("SELECT SUM(amount) FROM Transactions WHERE type='ORDER' AND date(timestamp)=?", (today,)).fetchone()[0] or 0)
-        
-        m1, m2, m3 = st.columns(3)
-        m1.metric("總發行儲值金", f"${total_bal}")
-        m2.metric("今日營收", f"${today_sales}")
-        m3.metric("今日儲值", f"${today_income}")
-        
-        st.subheader("今日交易明細")
-        df = pd.read_sql("""SELECT time(timestamp) as 時間, u.name as 員工, type as 類型, dish_name as 品項, amount as 金額 
-                            FROM Transactions t JOIN Users u ON t.user_id=u.user_id WHERE date(timestamp)=? ORDER BY timestamp DESC""", conn, params=(today,))
-        st.dataframe(df, use_container_width=True)
-
-# === 頁面 5: 人員管理 ===
-elif page == "⚙️ 人員管理":
-    st.header("人員管理")
-    
-    st.subheader("➕ 新增員工")
-    with st.form("add_user"):
-        n = st.text_input("姓名")
-        b = st.number_input("初始金", value=0)
-        
-        if st.form_submit_button("新增"):
-            try:
-                with get_db_connection() as conn:
-                    cur = conn.cursor()
-                    cur.execute("INSERT INTO Users (name, current_balance) VALUES (?, ?)", (n, b))
-                    uid = cur.lastrowid
-                    cur.execute("INSERT INTO Transactions (user_id, type, amount, note) VALUES (?, 'INIT', ?, '開戶')", (uid, b))
-                    conn.commit()
-                st.success("新增成功")
-                time.sleep(1)
-                st.rerun()
-            except:
-                st.error("姓名重複")
-
-    st.markdown("---")
-    
-    with get_db_connection() as conn:
-        users = pd.read_sql("SELECT * FROM Users", conn)
-    st.dataframe(users, use_container_width=True)
-    
-    st.subheader("🗑️ 刪除員工")
-    with st.form("del_user"):
-        to_del = st.selectbox("選擇刪除對象", users['name'].tolist() if not users.empty else [])
-        
-        if st.form_submit_button("確認刪除"):
-            with get_db_connection() as conn:
-                conn.execute("DELETE FROM Users WHERE name=?", (to_del,))
-                conn.commit()
-            st.warning(f"已刪除 {to_del}")
-            time.sleep(1)
-            st.rerun()
+                with get_db
